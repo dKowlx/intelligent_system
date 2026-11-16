@@ -1,100 +1,82 @@
 <!doctype html>
 <html lang="ru">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#001f1e">
-    <title>StudyNavigator — учебное пространство</title>
-    <meta name="description" content="Требования учебного задания, ответы с источниками и понятный план подготовки.">
-    <link rel="stylesheet" href="/static/styles.css?v=20261027-ui3">
-    <script id="text-format" src="/static/text-format.js?v=20261027-ui3" defer></script>
-    <script src="/static/app.js?v=20261027-ui3" defer></script>
-  </head>
-  <body>
-    <a class="skip-link" href="#workspace">Перейти к рабочему пространству</a>
-    <div class="app-shell">
-      <aside class="sidebar" aria-label="Учебное пространство">
-        <a class="brand" href="#workspace" aria-label="StudyNavigator, к рабочему пространству">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" fill="none"><path d="m7 10 9-5 9 5v12l-9 5-9-5V10Z" stroke="currentColor" stroke-width="1.7"/><path d="m7 10 9 5 9-5M16 15v12M11.5 7.5l9 5" stroke="currentColor" stroke-width="1.7"/></svg>
-          </span>
-          <span>Study<span class="brand-light">Navigator</span><small>От материалов к ясному плану</small></span>
-        </a>
-
-        <div class="sidebar-heading assignments-heading"><span>Мои задания</span><span id="assignment-count" class="count-badge">—</span></div>
-        <a class="add-assignment-link" href="#upload-panel"><span aria-hidden="true">+</span> Новое задание</a>
-        <ul id="assignments" class="assignment-list" aria-label="Выбрать задание">
-          <li class="sidebar-placeholder">Загружаем задания…</li>
-        </ul>
-
-        <div class="sidebar-note">
-          <span class="note-symbol" aria-hidden="true">↗</span>
-          <strong>Понимать, а не угадывать</strong>
-          <p>Требования, ответы и следующий шаг — с опорой на твои материалы.</p>
-        </div>
-        <div class="sidebar-footer"><span class="small-dot" aria-hidden="true"></span>Учебный ассистент</div>
-      </aside>
-
-      <main id="workspace" class="workspace" tabindex="-1">
-        <header class="topbar">
-          <p class="breadcrumb">Твоё учебное пространство <span aria-hidden="true">/</span> <strong>Работа с заданием</strong></p>
-          <div id="mode-badge" class="mode-badge" hidden><span id="mode-label">Проверяем подключение</span></div>
-        </header>
-
-        <section class="page-intro" aria-labelledby="assignment-title">
-          <div>
-            <p class="eyebrow">Понимание. Подготовка. Результат.</p>
-            <h1 id="assignment-title">Разберёмся с заданием</h1>
-            <p id="assignment-description" class="intro-description">Найди требования, проверь критерии и выбери следующий шаг.</p>
-          </div>
-          <div id="assignment-deadline" class="deadline-label">Срок — из материалов задания</div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#365de8">
+  <meta name="color-scheme" content="light dark">
+  <script src="/static/theme.js?v=20261116-progress-context-v1"></script>
+  <title>Project Navigator — работа над проектами</title>
+  <meta name="description" content="От сложной задачи к понятным действиям. Требования, доступное время и прогресс проекта в одном рабочем пространстве.">
+  <link rel="stylesheet" href="/static/styles.css?v=20261116-progress-context-v1">
+  <link rel="stylesheet" href="/static/route-map.css?v=20261116-progress-context-v1">
+  <script src="/static/route-map.js?v=20261116-progress-context-v1" defer></script>
+  <script id="text-format" src="/static/text-format.js?v=20261116-progress-context-v1" defer></script>
+  <script src="/static/app.js?v=20261116-progress-context-v1" defer></script>
+  <script src="/static/workspace.js?v=20261116-progress-context-v1" defer></script>
+  <link rel="stylesheet" href="/static/workspace.css?v=20261116-progress-context-v1">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Перейти к проекту</a>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Проекты">
+      <a class="brand" href="#workspace" aria-label="Project Navigator"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h9a3.5 3.5 0 0 1 0 7H9a3.5 3.5 0 0 0 0 7h10"/><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="19" r="2.5"/></svg><span><strong>Navigator</strong><small>Работа над проектами</small></span></a>
+      <a class="add-assignment-link" href="#upload-panel"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Новый проект</a>
+      <div class="sidebar-heading"><span>Мои проекты</span><span id="assignment-count" class="count-badge">—</span></div>
+      <ul id="assignments" class="assignment-list" aria-label="Выбрать проект"><li class="sidebar-placeholder">Загружаем проекты…</li></ul>
+      <div class="theme-control"><label for="theme-select">Оформление</label><select id="theme-select"><option value="system">Как в системе</option><option value="light">Светлое</option><option value="dark">Тёмное</option></select></div>
+      <div class="sidebar-footer"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg><div><strong>Ваше пространство</strong><p>Доступ к проектам сохранён в этом браузере.</p></div></div>
+    </aside>
+    <main id="workspace" class="workspace" tabindex="-1" data-view="upload">
+      <header class="topbar"><p class="breadcrumb">Рабочее пространство <span>/</span> <strong>Проекты</strong></p><div id="mode-badge" class="mode-badge" hidden><span id="mode-label">Подключение</span></div><span class="topbar-signature">Project Navigator</span></header>
+      <section class="page-intro" aria-labelledby="assignment-title"><div><h1 id="assignment-title">Сложный проект. Понятный следующий шаг.</h1><p id="assignment-description" class="intro-description">Определите результат, разложите работу на действия и найдите для них время.</p></div><div id="assignment-deadline" class="deadline-label">Срок не указан</div></section>
+      <nav id="workflow-nav" class="workflow-nav" role="tablist" aria-label="Представления проекта">
+        <button id="nav-card" class="workflow-button" type="button" role="tab" data-workflow="card" aria-controls="card-panel" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H5v18h14V8zM14 3v5h5M8 12h8M8 16h5"/></svg><span>О проекте</span></button>
+        <button id="nav-chat" class="workflow-button" type="button" role="tab" data-workflow="chat" aria-controls="chat-panel" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11a8 8 0 0 1-8 8H8l-5 3V6a3 3 0 0 1 3-3h10a5 5 0 0 1 5 5zM7 8h9M7 12h6"/></svg><span>Ассистент</span></button>
+        <button id="nav-overview" class="workflow-button" type="button" role="tab" data-workflow="overview" aria-controls="overview-panel" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Обзор</span></button>
+        <button id="nav-planning" class="workflow-button" type="button" role="tab" data-workflow="planning" aria-controls="planning" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 2 2 4-4M12 6h9M3 14l2 2 4-4M12 14h9M12 21h9"/></svg><span>Действия и план</span></button>
+        <button id="nav-analytics" class="workflow-button" type="button" role="tab" data-workflow="analytics" aria-controls="analytics-panel" aria-selected="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 3v17h17M8 15v-4M13 15V7M18 15V4"/></svg><span>Аналитика</span></button>
+      </nav>
+      <div id="mode-notice" class="mode-notice" role="status" hidden></div>
+      <div id="initial-error" class="initial-error" role="alert" hidden><div><strong>Не удалось открыть пространство</strong><p id="initial-error-text"></p></div><button id="reload-button" class="button button-secondary" type="button">Повторить</button></div>
+      <section id="overview-panel" class="overview-panel" role="tabpanel" aria-labelledby="nav-overview" hidden>
+        <h2 id="overview-heading" class="visually-hidden" tabindex="-1">Обзор проекта</h2>
+        <div id="overview-metrics" class="overview-metrics"></div>
+        <section class="route-panel route-board" aria-labelledby="route-map-heading">
+          <div class="section-heading"><div><h2 id="route-map-heading">Маршрут к результату</h2><p class="route-board-description">Действия, связи между ними и теория, которая поможет выполнить каждый шаг.</p></div><div class="route-view-switch" role="group" aria-label="Вид маршрута"><button type="button" data-route-view="diagram" aria-pressed="true" aria-controls="overview-route-diagram">Схема</button><button type="button" data-route-view="list" aria-pressed="false" aria-controls="overview-route">Список</button></div></div>
+          <div class="theory-controls"><button id="theory-find" class="button button-secondary" type="button">Подобрать теорию</button><p id="theory-status" role="status" aria-live="polite">Теория к каждому действию: материалы проекта и открытые объяснения по теме.</p></div>
+          <div id="overview-route-diagram"></div>
+          <div id="overview-route" class="overview-route" hidden></div>
         </section>
-
-        <nav id="workflow-nav" class="workflow-nav" aria-label="Этапы работы с заданием">
-          <button class="workflow-button" type="button" data-workflow="upload" aria-controls="upload-panel"><span class="workflow-index" aria-hidden="true">01</span><span>Материалы</span></button>
-          <button class="workflow-button" type="button" data-workflow="card" aria-controls="card-panel"><span class="workflow-index" aria-hidden="true">02</span><span>Задание</span></button>
-          <button class="workflow-button" type="button" data-workflow="planning" aria-controls="planning"><span class="workflow-index" aria-hidden="true">03</span><span>План</span></button>
-          <button class="workflow-button" type="button" data-workflow="chat" aria-controls="chat-panel"><span class="workflow-index" aria-hidden="true">04</span><span>Ассистент</span></button>
-        </nav>
-
-        <div id="mode-notice" class="mode-notice" role="status">Подключаемся к сервису и загружаем материалы…</div>
-        <div id="initial-error" class="initial-error" role="alert" hidden>
-          <div><strong>Не удалось открыть рабочее пространство</strong><p id="initial-error-text"></p></div>
-          <button id="reload-button" class="button button-secondary" type="button">Повторить</button>
-        </div>
-
-        <section id="upload-panel" class="upload-panel panel" aria-labelledby="upload-title">
-          <div class="panel-heading upload-heading">
-            <div><p class="eyebrow">01 / Начни с исходников</p><h2 id="upload-title">Материалы задания</h2></div>
-            <div class="upload-heading-actions"><span class="context-tag">1–3 PDF</span><button id="upload-toggle" class="text-button" type="button" aria-controls="upload-body" aria-expanded="true">Свернуть <span aria-hidden="true">−</span></button></div>
-          </div>
+        <div class="overview-grid"><div class="overview-main"><div id="overview-focus" class="overview-focus"></div></div><aside class="overview-aside" aria-label="Контекст и время"><section class="capacity-panel"><h2>Вместимость плана</h2><div id="overview-capacity"></div></section><section class="outcome-panel"><h2>Что должно получиться</h2><div id="overview-outcome"></div></section></aside></div>
+      </section>
+      <section id="upload-panel" class="upload-panel" aria-labelledby="upload-title">
+        <div class="creation-grid"><div class="creation-form panel">
+          <div class="panel-heading upload-heading"><div><h2 id="upload-title">С чего начнём?</h2><p>Опишите задачу своими словами. Детали уточним дальше.</p></div><button id="upload-toggle" class="text-button" type="button" aria-controls="upload-body" aria-expanded="true">Свернуть</button></div>
           <div id="upload-body" class="upload-body">
-          <form id="upload-form" class="upload-form">
-            <div class="upload-fields">
-              <label class="upload-name" for="upload-name">Название задания <span>необязательно</span>
-                <input id="upload-name" name="title" type="text" maxlength="200" placeholder="Например: курсовая по базам данных" autocomplete="off">
-              </label>
-              <div class="file-picker">
-                <label for="upload-files">Материалы задания</label>
-                <input id="upload-files" name="files" type="file" accept=".pdf,application/pdf" multiple aria-describedby="upload-rules">
-              </div>
-            </div>
-            <p id="upload-rules" class="upload-rules">1–3 PDF с выделяемым текстом · до 10 МиБ суммарно · до 16 000 символов текста. Сканы пока не поддерживаются.</p>
-            <ul id="selected-files" class="selected-files" aria-label="Выбранные файлы" hidden></ul>
-            <div class="upload-actions">
-              <button id="upload-button" class="button upload-submit" type="submit" disabled>Загрузить материалы <span aria-hidden="true">↑</span></button>
-              <button id="upload-cancel" class="button button-secondary" type="button" hidden>Отменить загрузку</button>
-              <button id="upload-reset" class="text-button" type="button" hidden>Очистить выбор</button>
-              <p id="upload-status" class="upload-status" role="status" aria-live="polite">Текст будет сохранён со ссылками на страницы.</p>
-            </div>
-            <p id="upload-error" class="upload-error" role="alert" hidden></p>
-          </form>
-          </div>
-        </section>
+            <form id="text-project-form" class="text-project-form">
+              <label for="project-name">Название проекта<input id="project-name" maxlength="200" required placeholder="Например, исследовать новый продукт"></label>
+              <label for="project-text">Что нужно сделать?<textarea id="project-text" rows="6" maxlength="100000" required placeholder="Какой результат хотите получить? Что обязательно учесть? Есть ли срок?
 
-        <section id="card-panel" class="card-panel panel" aria-labelledby="card-heading" hidden>
+Можно начать с нескольких предложений."></textarea></label>
+              <div class="creation-actions"><button id="text-create" disabled class="button button-primary" type="submit">Создать проект</button><button id="project-example" disabled class="button button-secondary" type="button">Попробовать пример</button></div>
+              <p id="text-project-status" class="upload-status" role="status"></p>
+            </form>
+            <details class="pdf-create"><summary>Есть готовое задание или бриф? Загрузить PDF</summary>
+              <form id="upload-form" class="upload-form"><div class="upload-fields"><label class="upload-name" for="upload-name">Название <span>необязательно</span><input id="upload-name" name="title" type="text" maxlength="200" placeholder="Название проекта" autocomplete="off"></label><div class="file-picker"><label for="upload-files">Материалы проекта</label><input id="upload-files" name="files" type="file" accept=".pdf,application/pdf" multiple aria-describedby="upload-rules"></div></div><p id="upload-rules" class="upload-rules">1–3 PDF с текстовым слоем, до 10 МиБ и 100 000 символов. Сканы не поддерживаются.</p><ul id="selected-files" class="selected-files" aria-label="Выбранные файлы" hidden></ul><div class="upload-actions"><button id="upload-button" class="button upload-submit" type="submit" disabled>Загрузить материалы</button><button id="upload-cancel" class="button button-secondary" type="button" hidden>Отменить загрузку</button><button id="upload-reset" class="text-button" type="button" hidden>Очистить выбор</button><p id="upload-status" class="upload-status" role="status" aria-live="polite">Сохраним текст и ссылки на страницы.</p></div><p id="upload-error" class="upload-error" role="alert" hidden></p></form>
+            </details>
+          </div>
+        </div>
+        <aside class="creation-preview" aria-label="Пример маршрута проекта">
+          <div class="preview-heading"><span class="preview-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h9a3.5 3.5 0 0 1 0 7H9a3.5 3.5 0 0 0 0 7h10"/><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="19" r="2.5"/></svg></span><span>От большой задачи<br><strong>к выполнимому плану</strong></span></div>
+          <p>Например, исследовать, почему люди не находят функцию в продукте.</p>
+          <ol class="preview-route"><li><span class="preview-step">1</span><div><strong>Подготовить исследование</strong><p>Сценарий и вопросы для интервью</p></div><span class="preview-time">45 мин</span></li><li><span class="preview-step">2</span><div><strong>Поговорить с пользователями</strong><p>Пять протоколов с наблюдениями</p></div><span class="preview-time">200 мин</span></li><li><span class="preview-step">3</span><div><strong>Сформулировать выводы</strong><p>Темы, рекомендации и отчёт</p></div><span class="preview-time">225 мин</span></li></ol>
+          <div class="preview-budget"><div><strong>470 мин работы</strong><span>450 мин доступно</span></div><div class="preview-bar"><span></span></div><p>Сразу видно: ещё 20 минут нужно найти в расписании.</p></div><small>Авторский пример. Оценки можно изменить.</small>
+        </aside></div>
+      </section>
+        <section id="card-panel" class="card-panel panel" role="tabpanel" aria-labelledby="nav-card" hidden>
           <div class="panel-heading card-heading">
-            <div><p class="eyebrow">02 / Выдели главное</p><h2 id="card-heading">Разобраться в задании</h2></div>
+            <div><h2 id="card-heading">Цель и требования</h2></div>
             <div class="card-heading-actions"><span id="card-state" class="context-tag">Нужна карточка</span><button id="card-toggle" class="text-button" type="button" aria-controls="card-body" aria-expanded="false" hidden>Изменить карточку</button></div>
           </div>
           <p id="card-summary" class="card-summary" hidden></p>
@@ -113,17 +95,17 @@
                 <legend class="visually-hidden">Сведения о задании</legend>
                 <label for="card-title">Название<input id="card-title" type="text" maxlength="200" required></label>
                 <div class="card-field-grid">
-                  <label for="card-goal">Цель задания<textarea id="card-goal" rows="3" maxlength="1000" required placeholder="Какую задачу нужно решить?"></textarea></label>
-                  <label for="card-deliverable">Что нужно сдать<textarea id="card-deliverable" rows="3" maxlength="1000" required placeholder="Например: отчёт и работающий прототип"></textarea></label>
+                  <label for="card-goal">Цель проекта<textarea id="card-goal" rows="3" maxlength="1000" required placeholder="Какую задачу нужно решить?"></textarea></label>
+                  <label for="card-deliverable">Итоговый результат<textarea id="card-deliverable" rows="3" maxlength="1000" required placeholder="Например: отчёт и работающий прототип"></textarea></label>
                 </div>
                 <div class="card-field-grid">
                   <label for="card-requirements">Требования <span>по одному на строку, до 12</span><textarea id="card-requirements" rows="4" placeholder="Что обязательно должно быть в результате?"></textarea></label>
-                  <label for="card-criteria">Критерии оценки <span>если указаны, до 10</span><textarea id="card-criteria" rows="4" placeholder="По каким признакам проверят работу?"></textarea></label>
+                  <label for="card-criteria">Критерии результата <span>если указаны, до 10</span><textarea id="card-criteria" rows="4" placeholder="По каким признакам проверят работу?"></textarea></label>
                 </div>
-                <label class="card-date-label" for="card-deadline">Дата сдачи <span>оставьте пустой, если неизвестна</span><input id="card-deadline" type="date"></label>
+                <label class="card-date-label" for="card-deadline">Срок проекта <span>оставьте пустым, если неизвестен</span><input id="card-deadline" type="date"></label>
               </fieldset>
+
               <div id="card-questions" class="card-questions" hidden></div>
-              <div id="card-evidence" class="card-evidence" hidden></div>
               <p id="card-dirty" class="card-dirty" hidden>Изменения ещё не подтверждены. Ваши правки будут отмечены отдельно от текста документа.</p>
               <div class="card-confirm-row">
                 <button id="card-confirm" class="button upload-submit" type="submit">Подтвердить карточку и перейти к плану</button>
@@ -135,14 +117,26 @@
         </section>
 
         <div id="workspace-grid" class="workspace-grid">
+
+          <section id="planning" class="planning-panel panel" role="tabpanel" aria-labelledby="nav-planning">
+            <div class="panel-heading"><div><h2 id="plan-title">Действия и план</h2><p id="plan-intro" class="plan-intro">Проверяйте результат, отмечайте готовое и корректируйте оставшееся время.</p></div><span class="context-tag">Ваш рабочий маршрут</span></div>
+            <div class="estimate-assist"><button id="refine-estimates" class="button button-secondary" type="button">Уточнить оценки с ИИ</button></div>
+            <details id="decomposition" class="decomposition"><summary><span><strong>Декомпозиция проекта</strong><small>Результаты, приоритеты и зависимости действий</small></span><span aria-hidden="true">＋</span></summary><div class="decomposition-body"><p class="empty-note">Каждое действие ведёт к проверяемому результату. Приоритет определяет порядок среди доступных действий; зависимости сохраняются.</p><div id="card-actions-editor"></div><div class="decomposition-actions"><button id="regroup-actions" class="button button-secondary" type="button">Собрать 5 действий</button><button id="add-card-action" class="button button-secondary" type="button">+ Добавить действие</button><button id="save-actions" class="button button-primary" type="button">Сохранить действия</button><button id="discard-actions" class="text-button" type="button" hidden>Отменить правки</button></div><p id="actions-status" role="status"></p></div></details>
+            <form id="plan-form" class="plan-form">
+              <div id="plan-tasks-editor" class="plan-tasks-editor" hidden><p class="task-editor-intro">Остаток — сколько ещё нужно работать. Факт — сколько уже потрачено.</p><div id="plan-tasks" class="plan-task-list"></div></div>
+              <details id="availability-settings" class="availability-settings" open><summary><span>Доступное время</span><span class="settings-chevron" aria-hidden="true">⌄</span></summary><div class="availability-body"><p>Оставьте место для других дел и отдыха. Занятый день — 0 минут.</p><div class="plan-inputs"><label for="plan-days"><span>Дней в плане</span><input id="plan-days" name="days" type="number" min="1" max="30" step="1" value="7" required></label><label for="plan-minutes"><span>Обычный лимит в день, мин</span><input id="plan-minutes" name="minutes_per_day" type="number" min="0" max="480" step="1" value="60" required></label></div><p id="availability-overrides-note" class="empty-note" hidden></p><p id="daily-recommendation" class="daily-recommendation" role="status"></p><details class="daily-overrides"><summary>Настроить отдельные дни</summary><p>Дни заполнены заранее. Для занятого дня укажите 0 минут.</p><div id="availability-days" class="availability-days"></div></details><label class="start-date-field" for="plan-start-date">Дата начала <span>Необязательно; нужна для проверки срока</span><input id="plan-start-date" type="date"></label><label class="reserve-field" for="plan-reserve">Оставить в резерве, %<input id="plan-reserve" type="number" min="0" max="50" value="20"></label></div></details>
+              <div class="plan-save-bar"><p id="plan-save-status" class="upload-status" role="status"></p><div><button id="plan-discard" class="text-button" type="button" hidden>Отменить изменения</button><button id="plan-button" class="button button-primary" type="submit" disabled>Сохранить и пересчитать</button></div></div>
+            </form>
+            <p id="plan-error" class="inline-error" role="alert" hidden></p><p id="plan-stale" class="plan-stale" role="status" hidden>Есть изменения. Сохраните их, чтобы обновить расписание.</p><div id="plan-result" class="plan-result" aria-live="polite" hidden></div><p id="plan-footnote" class="plan-footnote">Минуты — оценка объёма работы, а не гарантия срока.</p>
+          </section>
           <section id="materials-panel" class="materials-panel panel" aria-labelledby="materials-title" hidden>
             <div class="panel-heading materials-heading">
-              <div><p class="eyebrow">Материалы сохранены</p><h2 id="materials-title">Файлы задания</h2></div>
-              <div class="materials-heading-actions"><span class="materials-ready"><span class="small-dot" aria-hidden="true"></span> Текст извлечён</span><button id="materials-toggle" class="text-button" type="button" aria-controls="materials-body" aria-expanded="true" hidden>Скрыть материалы</button></div>
+              <div><h2 id="materials-title">Материалы проекта</h2></div>
+              <div class="materials-heading-actions"><button id="materials-toggle" class="text-button" type="button" aria-controls="materials-body" aria-expanded="true" hidden>Скрыть материалы</button></div>
             </div>
             <div id="materials-body" class="materials-body">
-              <p id="materials-next" class="materials-next">Файлы готовы. Откройте оригиналы и заполните карточку задания выше.</p>
-              <div id="documents" class="document-list" aria-label="Загруженные документы"></div>
+              <p id="materials-next" class="materials-next">Описания, статьи и файлы, на которые можно опереться в работе.</p>
+              <details id="add-material" class="add-material"><summary>Добавить материал</summary><form id="material-add-form" class="material-add-form"><label for="material-kind">Формат<select id="material-kind"><option value="text">Текст или статья</option><option value="pdf">PDF-файлы</option></select></label><label for="material-title">Название<input id="material-title" maxlength="200" required placeholder="Бриф, заметка или название статьи"></label><div id="material-text-fields"><label for="material-text">Текст материала<textarea id="material-text" rows="5" maxlength="100000" required placeholder="Вставьте описание, выдержку или свой конспект"></textarea></label><label for="material-url">Ссылка на оригинал <span>необязательно</span><input id="material-url" type="url" maxlength="2000" placeholder="https://…"></label></div><label id="material-file-field" for="material-files" hidden>PDF с текстовым слоем<input id="material-files" type="file" accept=".pdf,application/pdf" multiple></label><div class="material-add-actions"><button id="material-add-submit" class="button button-primary" type="submit">Добавить в проект</button><span>Ссылки открываются отдельно; в поиск попадает сохранённый текст.</span></div></form><p id="material-add-status" role="status"></p></details>
               <form id="material-search-form" class="material-search-form" role="search">
                 <label for="material-query">Найти в материалах</label>
                 <div class="material-search-row">
@@ -154,71 +148,58 @@
               <div id="material-results" class="material-results"></div>
               <div class="materials-footer">
                 <p>Материалы доступны в этом браузере и сохраняются после перезапуска сервиса.</p>
-                <button id="delete-assignment" class="text-button danger-text" type="button">Удалить задание</button>
+                <button id="delete-assignment" class="text-button danger-text" type="button">Удалить проект</button>
               </div>
               <div id="delete-confirmation" class="delete-confirmation" role="group" aria-labelledby="delete-question" hidden>
-                <p id="delete-question">Удалить это задание и все его файлы?</p>
+                <p id="delete-question">Удалить проект и все его материалы?</p>
                 <div><button id="delete-confirm" class="button button-danger" type="button">Да, удалить</button><button id="delete-cancel" class="button button-secondary" type="button">Оставить</button></div>
               </div>
               <p id="delete-error" class="upload-error" role="alert" hidden></p>
             </div>
           </section>
 
-          <section id="chat-panel" class="chat-panel panel" aria-labelledby="chat-title">
+          <section id="chat-panel" class="chat-panel panel" role="tabpanel" aria-labelledby="nav-chat">
             <div class="panel-heading chat-heading">
-              <div><p class="eyebrow">04 / Уточни детали</p><h2 id="chat-title">Ассистент по заданию</h2></div>
+              <div><h2 id="chat-title">Разобраться вместе</h2></div>
               <span class="context-tag">С источниками</span>
             </div>
 
             <div id="conversation" class="conversation" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Диалог по заданию">
               <div id="chat-welcome" class="chat-welcome">
                 <span class="welcome-mark" aria-hidden="true">✦</span>
-                <div class="welcome-copy"><h3>О чём нужно разобраться?</h3>
-                <p>Требования, критерии или формат сдачи — спроси по своим материалам.</p>
+                <div class="welcome-copy"><h3>Давайте проясним задачу</h3>
+                <p>Обсудите требования, следующий шаг и нагрузку. Попросите обновить действия — изменения можно проверить перед применением.</p>
                 <small>Источники появятся рядом с ответом.</small></div>
               </div>
             </div>
 
             <div class="composer-area">
               <div class="prompt-list" aria-label="Примеры вопросов">
-                <button class="prompt-button" type="button" data-prompt="Что нужно отправить в LMS?" disabled>Что отправить в LMS? <span aria-hidden="true">↗</span></button>
-                <button class="prompt-button" type="button" data-prompt="За что дают баллы и как оценивается работа?" disabled>Критерии оценки <span aria-hidden="true">↗</span></button>
-                <button class="prompt-button" type="button" data-prompt="Когда сдавать личный проект?" disabled>Когда сдавать? <span aria-hidden="true">↗</span></button>
+                <button class="prompt-button" type="button" data-prompt="Какой результат требуется получить?" disabled>Какой результат нужен? <span aria-hidden="true">↗</span></button>
+                <button class="prompt-button" type="button" data-prompt="Посмотри мой прогресс и доступное время. Что лучше сделать следующим и почему?" disabled>На чём сфокусироваться? <span aria-hidden="true">↗</span></button>
+                <button class="prompt-button" type="button" data-prompt="Какие перерывы и рабочий цикл можно попробовать с учётом материалов о продуктивности?" disabled>Как распределить нагрузку? <span aria-hidden="true">↗</span></button>
               </div>
               <form id="chat-form" class="chat-form">
                 <label class="visually-hidden" for="question">Вопрос по выбранному заданию</label>
-                <textarea id="question" name="message" rows="2" maxlength="2000" placeholder="Например: что обязательно должно быть в README?" aria-describedby="composer-help" disabled></textarea>
+                <textarea id="question" name="message" rows="2" maxlength="2000" placeholder="Например: какие требования ещё нужно уточнить?" disabled></textarea>
                 <button id="send-button" class="send-button" type="submit" aria-label="Отправить вопрос" disabled><span aria-hidden="true">↑</span></button>
                 <button id="cancel-button" class="cancel-button" type="button" hidden>Отменить</button>
               </form>
-              <div class="composer-footer"><small id="composer-help">Enter — отправить · Shift + Enter — новая строка</small><small>Проверяй важные факты по источнику</small></div>
+              <div class="composer-footer"><small>Проверяй важные факты по источнику</small></div>
             </div>
+            <section class="chat-sessions" aria-labelledby="chat-sessions-title">
+              <div class="chat-sessions-heading"><h3 id="chat-sessions-title">История чатов</h3><button id="delete-chat" class="text-button" type="button" disabled>Удалить выбранный</button><button id="new-chat" class="button button-secondary" type="button">Новый чат</button></div>
+              <div id="chat-delete-confirmation" hidden><p>Удалить этот чат вместе с сообщениями?</p><button id="chat-delete-confirm" class="button button-secondary" type="button">Удалить чат</button> <button id="chat-delete-cancel" class="text-button" type="button">Отмена</button></div>
+              <p id="chat-sessions-status" class="empty-note" role="status"></p>
+              <ul id="chat-sessions-list" class="chat-sessions-list" aria-label="Сохранённые чаты"></ul>
+            </section>
           </section>
 
-          <section id="planning" class="planning-panel panel" aria-labelledby="plan-title">
-            <div class="panel-heading"><div><p class="eyebrow">03 / Распредели работу</p><h2 id="plan-title">План подготовки</h2></div><span class="plan-icon" aria-hidden="true">↗</span></div>
-            <p id="plan-intro" class="plan-intro">Распределим этапы по доступному времени. Длительности — ориентировочные оценки.</p>
-            <form id="plan-form" class="plan-form">
-              <div id="plan-tasks-editor" class="plan-tasks-editor" hidden>
-                <p class="task-editor-intro">Проверьте минуты и отметьте выполненное. Изменения используются только в этом расчёте.</p>
-                <div id="plan-tasks" class="plan-task-list"></div>
-              </div>
-              <div class="plan-inputs">
-                <label for="plan-days">Дней на подготовку<input id="plan-days" name="days" type="number" min="1" max="30" step="1" value="7" required></label>
-                <label for="plan-minutes">Минут в день<input id="plan-minutes" name="minutes_per_day" type="number" min="15" max="480" step="1" value="60" required></label>
-              </div>
-              <button id="plan-button" class="button button-primary" type="submit" disabled>Составить план <span aria-hidden="true">→</span></button>
-            </form>
-            <p id="plan-error" class="inline-error" role="alert" hidden></p>
-            <p id="plan-stale" class="plan-stale" role="status" hidden>Параметры изменились. Рассчитайте план заново.</p>
-            <div id="plan-result" class="plan-result" aria-live="polite" hidden></div>
-            <p id="plan-footnote" class="plan-footnote">Относительный план по дням. Он не задаёт дату сдачи.</p>
-          </section>
-
-          <aside id="context-column" class="context-column" aria-label="Источники задания">
+          <section id="analytics-panel" class="analytics-panel" role="tabpanel" aria-labelledby="nav-analytics" hidden><div class="section-heading"><div><h2 id="analytics-heading" tabindex="-1">Ритм проекта</h2><p>Фактическое время, выполненные действия и изменения по сохранениям.</p></div><button id="analytics-refresh" class="button button-secondary" type="button">Обновить</button></div><p id="analytics-status" role="status"></p><div id="analytics-content"></div></section>
+          <aside id="context-column" class="context-column" aria-label="Источники проекта">
             <section id="sources-panel" class="sources-panel panel" aria-labelledby="sources-title">
-              <div class="panel-heading"><div><p class="eyebrow">Проверь по оригиналу</p><h2 id="sources-title">Источники</h2></div><span id="source-count" class="light-count">—</span></div>
-              <div id="sources" class="sources-list"><p class="empty-note">После выбора задания здесь появятся его источники.</p></div>
+              <div class="panel-heading"><div><h2 id="sources-title">Источники</h2></div><span id="source-count" class="light-count">—</span></div>
+              <div id="sources" class="sources-list"><p class="empty-note">После выбора проекта здесь появятся его источники.</p></div>
               <details id="assignment-details" class="assignment-details" hidden>
                 <summary>Требования и критерии</summary>
                 <div id="requirements"></div>
@@ -226,8 +207,9 @@
             </section>
           </aside>
         </div>
-        <footer class="page-footer"><span>StudyNavigator</span><span>Понятные требования. Проверяемые ответы.</span></footer>
-      </main>
-    </div>
-  </body>
+        <footer class="page-footer"><span>Project Navigator</span><span>От ясной цели к готовому результату</span></footer>
+    </main>
+  </div>
+  <dialog id="source-dialog" class="source-dialog" aria-labelledby="source-dialog-title"><div class="source-dialog-header"><div><p class="eyebrow">Материал проекта</p><h2 id="source-dialog-title">Материал</h2></div><button id="source-close" class="source-close" type="button" aria-label="Закрыть материал">×</button></div><div id="source-dialog-content"></div></dialog>
+</body>
 </html>

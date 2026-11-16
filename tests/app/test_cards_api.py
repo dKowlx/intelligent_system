@@ -165,7 +165,9 @@ def test_offline_card_is_manual_and_unknown_deadline_stays_unknown(settings):
         assert all("MCP" not in task["title"] for task in ready["card"]["tasks"])
         response = plan(browser, ready)
         assert response.status_code == 200
-        assert response.json()["required_minutes"] == 90
+        assert len(response.json()["tasks"]) == 5
+        assert response.json()["required_minutes"] == 215
+        assert all("Ручной шаблон" in task["estimate_basis"] for task in response.json()["tasks"])
 
 
 def test_user_edits_are_not_promoted_to_document_facts(client):

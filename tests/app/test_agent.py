@@ -417,3 +417,133 @@ async def test_user_deadline_without_document_citation_uses_verified_user_contex
     assert "2027-03-10" in result["answer"]
     assert "ввод пользователя" in result["answer"]
     assert result["sources"] == [] and result["facts"] == []
+
+
+def reasoning_turn(condition, source_ids=None, **changes):
+    body = {"answer": "Решение — собственный вывод по условию. r²−r−2=0, r=2,−1. "
+                      "y=C₁e²ˣ+C₂e⁻ˣ. Подстановка: (4−2−2)C₁e²ˣ+(1+1−2)C₂e⁻ˣ=0.",
+            "status": "answered", "answer_basis": "reasoning", "reasoning_condition": condition,
+            "source_ids": source_ids or [], "facts": []}
+    body.update(changes)
+    return {"content": json.dumps(body, ensure_ascii=False)}
+
+
+@pytest.mark.asyncio
+async def test_solution_from_user_condition_requires_no_fabricated_document_citation():
+    condition = "Решить уравнение y″ − y′ − 2y = 0."
+    provider = ScriptedProvider([tool_turn(), reasoning_turn(condition)])
+    result = await StudyAgent(FixtureGateway(), provider).run("Реши задачу: " + condition)
+    assert result["answer_basis"] == "reasoning"
+    assert result["reasoning_condition"] == condition
+    assert result["sources"] == result["facts"] == []
+    assert "Подстановка" in result["answer"]
+
+
+@pytest.mark.asyncio
+async def test_solution_uses_retrieved_condition_not_a_preexisting_answer():
+    gateway = FixtureGateway()
+    condition = "Решить линейное однородное уравнение y″ − y′ − 2y = 0."
+    gateway.assignment["sources"][0]["excerpt"] = "С. §8 № 4\n" + condition
+    sid = gateway.assignment["sources"][0]["source_id"]
+    provider = ScriptedProvider([tool_turn(), tool_turn("search_materials", {"query": "§8 №4"}),
+                                 reasoning_turn(condition, [sid])])
+    result = await StudyAgent(gateway, provider).run("Реши §8 №4")
+    assert result["answer_basis"] == "reasoning"
+    assert result["sources"][0]["excerpt"].endswith(condition)
+    assert gateway.dispatches[-1][0] == "search_materials"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("message,condition,changes", [
+    ("Реши §8 №4", "Уравнение y″ + 999y = 0.", {}),
+    ("Какие требования к LMS?", "Какие требования к LMS?", {}),
+    ("Реши: уравнение y″−y′−2y=0", "уравнение y″−y′−2y=0", {"facts": [{"key": "score", "value": 99, "source_id": "fake"}]}),
+])
+async def test_reasoning_cannot_invent_conditions_or_bypass_project_facts(message, condition, changes):
+    with pytest.raises(AgentError) as error:
+        await StudyAgent(FixtureGateway(), ScriptedProvider([tool_turn(), reasoning_turn(condition, **changes)])).run(message)
+    assert error.value.code == "invalid_reasoning_basis"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("excerpt,condition", [
+    ("С. §9 № 4\nРешить уравнение y″ − y′ − 2y = 0.", "Решить уравнение y″ − y′ − 2y = 0."),
+    ("С. §8 № 4\nСписок упражнений №4, 9, 12.", "Список упражнений №4, 9, 12."),
+    ("С. §8 № 4\nУсловие отсутствует.\nС. §8 № 9\nРешить y″+2y′+5y=0.", "Решить y″+2y′+5y=0."),
+])
+async def test_numbered_solution_requires_the_requested_exercise_condition(excerpt, condition):
+    gateway = FixtureGateway()
+    gateway.assignment["sources"][0]["excerpt"] = excerpt
+    sid = gateway.assignment["sources"][0]["source_id"]
+    with pytest.raises(AgentError) as error:
+        await StudyAgent(gateway, ScriptedProvider([tool_turn(), reasoning_turn(condition, [sid])])).run("Реши §8 №4")
+    assert error.value.code == "invalid_reasoning_basis"
+
+
+@pytest.mark.asyncio
+async def test_short_exact_user_equation_is_valid_reasoning_input():
+    result = await StudyAgent(FixtureGateway(), ScriptedProvider([
+        tool_turn(), reasoning_turn("y′=y")])).run("Реши y′=y")
+    assert result["reasoning_condition"] == "y′=y"
+
+
+@pytest.mark.asyncio
+async def test_condition_quote_can_include_its_numbered_locator():
+    gateway = FixtureGateway()
+    condition = "С. §8 №4. Решить y″−y′−2y=0."
+    gateway.assignment["sources"][0]["excerpt"] = condition
+    sid = gateway.assignment["sources"][0]["source_id"]
+    result = await StudyAgent(gateway, ScriptedProvider([
+        tool_turn(), reasoning_turn(condition, [sid])])).run("Реши §8 №4")
+    assert result["reasoning_condition"] == condition
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('scope', ['shared_research', 'web_theory', 'project', None])
+async def test_plan_advice_cites_only_retrieved_background_sources(scope):
+    gateway = FixtureGateway()
+    gateway.assignment['project_context'] = {'analytics': {'totals': {}}}
+    source = gateway.assignment['sources'][0]
+    source['scope'] = scope
+    payload = {'answer': 'Сравните нагрузку плана с доступным временем; исследование — общий ориентир.',
+               'answer_basis': 'project_context', 'status': 'answered',
+               'source_ids': [source['source_id']], 'facts': []}
+    provider = ScriptedProvider([tool_turn(), {'content': json.dumps(payload)}])
+    if scope in {'shared_research', 'web_theory'}:
+        result = await StudyAgent(gateway, provider).run('Как распределить время в плане?')
+        assert result['sources'][0]['scope'] == scope
+    else:
+        with pytest.raises(AgentError) as error:
+            await StudyAgent(gateway, provider).run('Как распределить время в плане?')
+        assert error.value.code == 'invalid_project_context'
+
+
+@pytest.mark.asyncio
+async def test_plan_advice_cannot_forge_background_citations():
+    gateway = FixtureGateway()
+    gateway.assignment['project_context'] = {'analytics': {'totals': {}}}
+    payload = {'answer': 'Рекомендация', 'answer_basis': 'project_context', 'status': 'answered',
+               'source_ids': ['forged-research'], 'facts': []}
+    with pytest.raises(AgentError) as error:
+        await StudyAgent(gateway, ScriptedProvider([tool_turn(), {'content': json.dumps(payload)}])).run('Как распределить время?')
+    assert error.value.code == 'invalid_project_context'
+
+
+@pytest.mark.asyncio
+async def test_reestimate_retrieval_uses_task_topics_and_no_extra_model_call():
+    gateway = FixtureGateway()
+    gateway.assignment['card'] = {'tasks': [
+        {'title': 'Выполнить: Решить все задачи из списка второй части'},
+        {'title': 'Вычисление интегралов методом подстановки'},
+        {'title': 'Проверка первообразной дифференцированием'}]}
+    provider = ScriptedProvider([tool_turn(), tool_turn('search_materials',
+        {'assignment_id': 'personal-project', 'query': 'Переоцени длительность действий', 'limit': 5}), final_turn()])
+    provider.mode = 'live'
+    await StudyAgent(gateway, provider).run('Переоцени длительность действий с учётом подготовки и проверки')
+    search = gateway.dispatches[-1][1]
+    assert search['include_theory'] is True
+    assert 'интегралов' in search['query'] and 'первообразной' in search['query']
+    assert search['theory_topics'] == ['Вычисление интегралов методом подстановки',
+                                      'первообразной дифференцированием']
+    assert 'Переоцени' not in search['query']
+    assert len(provider.calls) == 3

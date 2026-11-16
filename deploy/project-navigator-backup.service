@@ -1,0 +1,10 @@
+[Unit]
+Description=Project Navigator consistent data backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/studynavigator/app/deploy/run-backup.sh
+TimeoutStartSec=300
+UMask=0077

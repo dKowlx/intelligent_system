@@ -91,8 +91,11 @@ def test_source_reader_formats_actual_pdf_bullets_but_keeps_raw_api_and_private_
         assert ("main", {"id": "source-reader", "class": "source-reader"}) in parsed.elements
         assert ("div", {"class": "structured-text"}) in parsed.elements
         assert "ul" in [tag for tag, _ in parsed.elements]  # Previously a single flat blockquote.
-        assert not {"script", "img", "blockquote"} & {tag for tag, _ in parsed.elements}
-        assert any(tag == "link" and attrs.get("href") == "/static/styles.css?v=20261027-ui3" for tag, attrs in parsed.elements)
+        assert not {"img", "blockquote"} & {tag for tag, _ in parsed.elements}
+        assert [attrs for tag, attrs in parsed.elements if tag == "script"] == [
+            {"src": "/static/theme.js?v=20261109-route-theme"}]
+        assert "<script>" not in rendered.text
+        assert any(tag == "link" and attrs.get("href") == "/static/styles.css?v=20261109-route-theme" for tag, attrs in parsed.elements)
         assert any(tag == "a" and attrs.get("href") == source["document_url"] + "#page=1"
                    and attrs.get("rel") == "noopener" for tag, attrs in parsed.elements)
         assert owner.get(api_path).json() == before

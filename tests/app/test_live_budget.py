@@ -520,3 +520,91 @@ async def test_one_client_cannot_close_a_pool_used_by_another_active_request(mon
     assert pools[0].closed
     assert transport.summary()["attempts"] == 2
     await transport.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('suffix', ['', '/latest'])
+async def test_deepseek_priced_and_never_sent_to_native_tokenizer(tmp_path, suffix):
+    paths = []
+    def dispatch(request):
+        paths.append(request.url.path)
+        return success()
+    ledger = tmp_path / 'ledger.json'
+    transport = BudgetTransport(ledger, inner=httpx.MockTransport(dispatch), tokenize_payload=True)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await client.post(URL, json=payload(model='gpt://test-folder/deepseek-v4.1-flash' + suffix))
+    assert paths == ['/v1/chat/completions']
+    assert transport.summary()['actual_cost_rub'] == pytest.approx(12 * .0003 + 4 * .0005)
+    row = json.loads(ledger.read_text())['attempts'][0]
+    assert row['input_rate_rub_per_1000_tokens'] == '0.3000'
+    assert row['output_rate_rub_per_1000_tokens'] == '0.5000'
+    await transport.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('model', ['text-embeddings-v2-doc', 'text-embeddings-v2-query/latest', 'text-embeddings-v2-doc/'])
+async def test_embedding_reserves_before_dispatch_and_shares_chat_ledger(tmp_path, model):
+    ledger = tmp_path / 'ledger.json'
+    def dispatch(request):
+        row = json.loads(ledger.read_text())['attempts'][-1]
+        assert row['status'] == 'pending'
+        assert Decimal(row['reserved_rub']) > 0
+        if request.url.path == '/v1/embeddings':
+            assert row['completion_tokens_upper_bound'] == 0
+            return httpx.Response(200, json={'data': [{'embedding': [0.1] * 768}],
+                                           'usage': {'prompt_tokens': 10, 'total_tokens': 10}})
+        return success()
+    transport = BudgetTransport(ledger, inner=httpx.MockTransport(dispatch), tokenize_payload=True)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await client.post(URL, json=payload(model='gpt://test-folder/deepseek-v4.1-flash'))
+        await client.post('https://ai.api.cloud.yandex.net/v1/embeddings', json={
+            'model': 'emb://test-folder/' + model, 'input': 'private document',
+            'dimensions': 768, 'encoding_format': 'float'})
+    expected = 12 * .0003 + 4 * .0005 + 10 * .0000101
+    assert transport.summary()['actual_cost_rub'] == pytest.approx(expected)
+    assert transport.summary()['attempts'] == 2
+    assert 'private document' not in ledger.read_text()
+    await transport.close()
+    reloaded = BudgetTransport(ledger)
+    assert reloaded.summary()['actual_cost_rub'] == pytest.approx(expected)
+    await reloaded.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('changes', [{'dimensions': 256}, {'dimensions': True}, {'input': ['text']},
+                                     {'model': 'emb://folder/text-search-doc/latest'}, {'encoding_format': 'base64'}])
+async def test_embedding_unknown_prices_or_shapes_fail_before_dispatch(tmp_path, changes):
+    calls = []
+    transport = BudgetTransport(tmp_path / 'ledger.json', inner=httpx.MockTransport(lambda r: calls.append(r) or success()))
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(ProviderError):
+            await client.post('https://ai.api.cloud.yandex.net/v1/embeddings', json={
+                'model': 'emb://folder/text-embeddings-v2-doc/latest', 'input': 'text', 'dimensions': 768, **changes})
+    assert calls == []
+    await transport.close()
+
+
+@pytest.mark.asyncio
+async def test_embedding_error_reservation_persists_without_resetting_allowance(tmp_path):
+    ledger = tmp_path / 'ledger.json'
+    transport = BudgetTransport(ledger, inner=httpx.MockTransport(lambda r: httpx.Response(503)))
+    async with httpx.AsyncClient(transport=transport) as client:
+        await client.post('https://ai.api.cloud.yandex.net/v1/embeddings', json={
+            'model': 'emb://folder/text-embeddings-v2-query', 'input': 'text', 'dimensions': 768})
+    state = transport.summary()
+    assert state['unknown_reserved_rub'] > 0
+    await transport.close()
+    reloaded = BudgetTransport(ledger)
+    assert reloaded.summary() == state
+    await reloaded.close()
+
+
+@pytest.mark.parametrize('effort', ['none','minimal','low','medium','high','xhigh'])
+def test_budget_accepts_known_reasoning_effort(effort):
+    assert BudgetTransport._validate_payload(payload(reasoning_effort=effort))[1]==20
+
+
+@pytest.mark.parametrize('effort', [None,False,1,[],{},'auto','LOW',''])
+def test_budget_rejects_unknown_reasoning_effort(effort):
+    with pytest.raises(ProviderError):
+        BudgetTransport._validate_payload(payload(reasoning_effort=effort))

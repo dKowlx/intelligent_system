@@ -234,7 +234,7 @@ async def test_invalid_truncated_or_refused_output_is_not_reported_as_a_card(res
 
     with pytest.raises(ProviderError) as error:
         await configured_provider(handler).analyze(material())
-    assert error.value.code in {"provider_invalid_response", "provider_refused"}
+    assert error.value.code in {"provider_invalid_response", "provider_refused", "provider_output_limit"}
     assert calls == 1
 
 
@@ -256,5 +256,202 @@ async def test_oversized_context_is_rejected_before_an_http_request():
         raise AssertionError("No HTTP request for oversized material")
 
     with pytest.raises(ProviderError) as error:
-        await configured_provider(handler).analyze(material("x" * 25000))
+        await configured_provider(handler).analyze(material("x" * 100001))
     assert error.value.code == "analysis_context_limit"
+
+
+@pytest.mark.asyncio
+async def test_large_analysis_reads_every_fragment_and_restores_global_aliases_and_total_usage():
+    assignment = material()
+    assignment["sources"] = [{"source_id": f"original-{index}", "page": index,
+                              "excerpt": ('Контекст "A". ' * 700) + f"Обязательное требование {index}."}
+                             for index in range(10)]
+    padding = 100000 - sum(len(source["excerpt"]) for source in assignment["sources"])
+    assignment["sources"][-1]["excerpt"] = "x" * padding + assignment["sources"][-1]["excerpt"]
+    assert sum(len(source["excerpt"]) for source in assignment["sources"]) == 100000
+    assert len(json.dumps(assignment, ensure_ascii=False)) > 100000
+    sent, extracted = [], []
+    original = json.dumps(assignment, sort_keys=True)
+
+    def handler(request):
+        payload = json.loads(request.content)
+        sent.append(payload)
+        data = json.loads(payload["messages"][1]["content"])
+        if '"complete"' in payload["messages"][0]["content"]:
+            extracted.extend(data["sources"])
+            # Only return requirements from this batch, including the last part.
+            refs = []
+            for source in data["sources"]:
+                import re
+                for match in re.finditer(r"Обязательное требование \d+\.", source["excerpt"]):
+                    refs.append({"source_id": source["source_id"], "excerpt": match.group()})
+            response = {"complete": True, "sources": refs}
+        else:
+            assert any(item["source_id"] == "S10" and "требование 9." in item["excerpt"]
+                       for item in data["sources"])
+            response = {"requirements": [{"text": "Обязательное требование 9.", "source_ids": ["S10"]}]}
+        return httpx.Response(200, json=model_response(response, usage={
+            "prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}))
+
+    result = await yandex_provider(handler).analyze(assignment)
+    assert 2 < len(sent) <= 9
+    assert result["card"]["requirements"][0]["source_ids"] == ["original-9"]
+    assert result["usage"] == {"prompt_tokens": 10 * len(sent), "completion_tokens": 5 * len(sent),
+                               "total_tokens": 15 * len(sent)}
+    for index, source in enumerate(assignment["sources"], 1):
+        assert "".join(item["excerpt"] for item in extracted if item["source_id"] == f"S{index}") == source["excerpt"]
+    assert all(len(payload["messages"][1]["content"]) <= 24000 for payload in sent)
+    assert json.dumps(assignment, sort_keys=True) == original
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad", [
+    {"complete": True, "sources": [{"source_id": "unknown", "excerpt": "x"}]},
+    {"complete": True, "sources": [{"source_id": "fixture-page-1", "excerpt": "invented"}]},
+    {"complete": True, "sources": "wrong"},
+    {"complete": False, "sources": []},
+])
+async def test_large_analysis_does_not_synthesize_from_invented_or_incomplete_evidence(bad):
+    sent = []
+    provider = configured_provider(lambda request: sent.append(request) or httpx.Response(200, json=model_response(bad)))
+    with pytest.raises(ProviderError) as error:
+        await provider.analyze(material("x" * 30000))
+    assert error.value.code in {"provider_invalid_response", "analysis_context_limit"}
+    assert len(sent) == 1
+
+
+@pytest.mark.asyncio
+async def test_large_analysis_has_one_shared_deadline_for_extraction_and_synthesis():
+    sent = []
+
+    async def handler(request):
+        sent.append(request)
+        await asyncio.sleep(0.035)
+        return httpx.Response(200, json=model_response({"complete": True, "sources": []}))
+
+    with pytest.raises(ProviderError) as error:
+        await configured_provider(handler, timeout=0.055).analyze(material("x" * 30000))
+    assert error.value.code == "provider_timeout"
+    assert len(sent) == 2
+
+
+@pytest.mark.asyncio
+async def test_large_analysis_preflight_rejects_unbounded_escaped_input_without_http():
+    provider = configured_provider(lambda request: pytest.fail("No model call before complete preflight"))
+    with pytest.raises(ProviderError) as error:
+        await provider.analyze(material("\x00" * 100000))
+    assert error.value.code == "analysis_context_limit"
+
+
+def test_large_analysis_batches_preserve_exact_100k_text_including_escaped_characters():
+    from studynavigator.large_analysis import batches, encode
+    text = 'Текст "цитаты"\n' * 6000
+    text += "x" * (100000 - len(text))
+    data = {"assignment_id": "project", "title": "title", "sources": [
+        {"source_id": "global-id", "page": 2, "excerpt": text}]}
+    parts = batches(data)
+    assert 1 < len(parts) <= 8
+    assert all(len(encode(part)) <= 24000 for part in parts)
+    assert "".join(source["excerpt"] for part in parts for source in part["sources"]) == text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("version", ["", "/latest"])
+async def test_deepseek_analysis_sends_all_100k_material_once_without_compression(version):
+    sent = []
+    assignment = material()
+    assignment["sources"] = [
+        {"source_id": f"original-{index}", "page": index + 1,
+         "excerpt": "Контекст. " * 998 + f"Требование {index}."}
+        for index in range(10)]
+    padding = 100000 - sum(len(source["excerpt"]) for source in assignment["sources"])
+    assignment["sources"][-1]["excerpt"] += "x" * padding + "Последний факт."
+    assignment["sources"][0]["excerpt"] = assignment["sources"][0]["excerpt"][len("Последний факт."):]
+
+    def handler(request):
+        payload = json.loads(request.content)
+        sent.append(payload)
+        assert '"complete"' not in payload["messages"][0]["content"]
+        data = json.loads(payload["messages"][1]["content"])
+        assert sum(len(source["excerpt"]) for source in data["sources"]) == 100000
+        for index, (source, original) in enumerate(zip(data["sources"], assignment["sources"]), 1):
+            assert source == {**original, "source_id": f"S{index}"}
+        assert data["sources"][-1]["excerpt"].endswith("Последний факт.")
+        return httpx.Response(200, json=model_response({
+            "requirements": [{"text": "Последний факт.", "source_ids": ["S10"]}]}))
+
+    provider = yandex_provider(handler)
+    provider.model = "gpt://fixture-folder/deepseek-v4.1-flash" + version
+    result = await provider.analyze(assignment)
+    assert len(sent) == 1
+    assert result["card"]["requirements"][0]["source_ids"] == ["original-9"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["x" * 100001, "\x00" * 100000])
+async def test_deepseek_rejects_input_and_serialized_size_limit_before_http(text):
+    provider = yandex_provider(lambda request: pytest.fail("No request for oversized input"))
+    provider.model = "gpt://fixture-folder/deepseek-v4.1-flash/latest"
+    with pytest.raises(ProviderError) as error:
+        await provider.analyze(material(text))
+    assert error.value.code == "analysis_context_limit"
+
+
+@pytest.mark.asyncio
+async def test_unknown_goal_and_result_survive_provider_and_real_mcp_analysis(tmp_path):
+    from studynavigator.cards import analyze_assignment
+    from studynavigator.catalog import seed_database
+    from studynavigator.ingestion import ingest_documents
+    from studynavigator.mcp_gateway import MCPGateway
+    from test_ingestion import text_pdf
+
+    path = tmp_path / "analysis.sqlite"
+    seed_database(path)
+    assignment = ingest_documents(path, tmp_path / "uploads", "owner", [
+        ("program.pdf", text_pdf("Course: differential equations. Study the Cauchy problem.")),
+    ])["assignment"]
+    source_id = assignment["sources"][0]["source_id"]
+
+    def handler(request):
+        instructions = json.loads(request.content)["messages"][0]["content"]
+        assert '{"text":"","origin":"user","source_ids":[]}' in instructions
+        return httpx.Response(200, json=model_response({
+            "title": "Differential equations",
+            "goal": {"text": "", "origin": "document", "source_ids": []},
+            "deliverable": {"text": "  ", "origin": "document", "source_ids": []},
+            "requirements": [{"text": "Study the Cauchy problem", "origin": "document",
+                              "source_ids": [source_id]}],
+            "questions": ["Какова цель подготовки и какой результат нужно представить?"],
+        }))
+
+    async with MCPGateway(path, workspace_id="owner") as gateway:
+        result = await analyze_assignment(gateway, configured_provider(handler), assignment["assignment_id"])
+    for name in ("goal", "deliverable"):
+        assert result["card"][name] == {"text": "", "origin": "user", "source_ids": []}
+    assert result["card"]["requirements"][0]["source_ids"] == [source_id]
+    assert result["card"]["deadline"] == {"date": None, "origin": "unknown", "source_ids": []}
+    assert result["card"]["questions"]
+    assert result["trace"][0]["name"] == "get_assignment"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field,value,code", [
+    ("goal", {"text": "Actual fact", "origin": "document", "source_ids": []}, "missing_sources"),
+    ("deliverable", {"text": "", "origin": "document", "source_ids": ["unknown"]}, "unsupported_source"),
+    ("requirements", [{"text": "", "origin": "document", "source_ids": []}], "invalid_card"),
+    ("goal", {"text": "Invented input", "origin": "user", "source_ids": []}, "invalid_provenance"),
+])
+async def test_empty_field_repair_does_not_relax_fact_validation(field, value, code):
+    from studynavigator.cards import analyze_assignment, CardError
+
+    class Gateway:
+        trace = []
+
+        async def call(self, name, arguments):
+            return {"assignment": {**material(), "is_uploaded": True}}
+
+    provider = configured_provider(lambda request: httpx.Response(200, json=model_response({
+        "title": "Project", field: value})))
+    with pytest.raises(CardError) as error:
+        await analyze_assignment(Gateway(), provider, "upload-fixture")
+    assert error.value.code == code

@@ -1,0 +1,38 @@
+.route-map{min-width:0;max-width:100%;margin-block:16px}.route-help{display:block;color:var(--muted);font-size:.875rem;line-height:1.5}.route-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0}.route-zoom{padding:7px 12px;min-height:44px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer}.route-zoom-value{font-size:.8rem;color:var(--muted)}.route-viewport{width:100%;max-width:100%;height:min(var(--route-height,520px),520px,65vh);min-height:240px;overflow:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:14px;background:var(--canvas);background-image:radial-gradient(var(--diagram-grid) 1px,transparent 1px);background-size:20px 20px}.route-space{position:relative;min-width:1px}.route-canvas{position:absolute;left:0;top:0;transform-origin:top left}.route-edges{position:absolute;inset:0;overflow:visible;pointer-events:none}.route-edges path{stroke:var(--muted);stroke-width:2;fill:none}.route-node{box-sizing:border-box;position:absolute;display:flex;flex-direction:column;gap:7px;width:236px;height:164px;padding:14px;text-align:left;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;cursor:pointer;box-shadow:0 3px 12px #0000000a;overflow:hidden}.route-node:hover,.route-node[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft)}.route-node.is-complete{border-color:var(--success)}.route-node-status{font-size:.7rem;font-weight:600;color:var(--muted)}.route-node.is-complete .route-node-status{color:var(--success)}.route-node-title{font-size:.9rem;line-height:1.35;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}.route-node-time,.route-node-day{font-size:.75rem;line-height:1.3;overflow-wrap:anywhere}.route-node-time{color:var(--muted)}.route-node-day{margin-top:auto;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.route-details{padding:18px;margin-top:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow-wrap:anywhere}.route-details h3{margin:0 0 12px}.route-detail-field{line-height:1.5;margin:8px 0}.route-detail-field strong{color:var(--muted);font-weight:500}.route-error{color:var(--error);padding:16px;border:1px solid var(--error);border-radius:10px}.route-empty{color:var(--muted);padding:16px}.route-node:focus-visible,.route-zoom:focus-visible,.route-viewport:focus-visible,.route-open:focus-visible{outline:3px solid var(--focus-ring);outline-offset:3px}@media(max-width:500px){.route-details{padding:12px}.route-viewport{height:min(var(--route-height,360px),360px)}}
+
+.route-open{min-height:44px;padding:10px 16px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--ink);cursor:pointer}
+
+.route-edges path.route-order-edge{stroke:var(--muted);stroke-width:1.5;stroke-dasharray:4 4;opacity:.8}
+
+/* Reading annotations attach to actions without becoming dependencies. */
+.route-theory-note{position:absolute;box-sizing:border-box;width:236px;height:104px;padding:10px 13px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:4px 10px 10px 4px;background:var(--surface);color:var(--ink);text-align:left;display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.route-theory-note:before{content:"";position:absolute;left:24px;bottom:100%;height:15px;border-left:1px dashed var(--muted)}
+.route-theory-note:hover{background:var(--accent-soft);border-color:var(--accent)}
+.route-theory-note:focus-visible,.route-list-theory summary:focus-visible{outline:3px solid var(--focus-ring);outline-offset:3px}
+.route-theory-note-label{font-size:.75rem;color:var(--muted)}
+.route-theory-note-title{flex-shrink:0;font-size:.875rem;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.route-theory-note-open{font-size:.75rem;color:var(--accent);margin-top:auto}
+.route-theory-reading{border-top:1px solid var(--line);margin-top:20px;padding-top:16px}
+.route-theory-heading{font-size:1.125rem;margin:0 0 14px}
+.route-theory-resource{max-width:76ch;padding:0 0 18px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+.route-theory-resource:last-child{border-bottom:0;margin-bottom:0}
+.route-theory-resource h5{font-size:1rem;line-height:1.5;margin:5px 0 8px}
+.route-theory-origin{font-size:.8125rem;color:var(--muted);margin:0}
+.route-theory-text,.route-theory-empty,.route-theory-purpose{font-size:1rem;line-height:1.75;white-space:pre-wrap;margin:8px 0;overflow-wrap:anywhere}
+.route-theory-empty,.route-theory-purpose{color:var(--muted)}
+.route-theory-original{font-size:.875rem;margin-top:12px}
+.route-theory-original summary{cursor:pointer;color:var(--muted);padding:8px 0;min-height:24px}
+.route-theory-original a{display:inline-block;padding-block:8px;color:var(--accent)}
+.theory-controls{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:16px}
+.theory-controls button{flex:0 0 auto;min-height:44px}
+.theory-controls button[aria-busy=true]:before{content:"";display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-2px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:theory-spin 1s linear infinite}
+.theory-controls p{flex:1 1 260px;color:var(--muted);font-size:.875rem;line-height:1.5;margin:0;max-width:65ch}
+.route-list-action{border-bottom:1px solid var(--line)}
+.route-list-action:last-child{border-bottom:0}
+.route-list-action .route-item{border-bottom:0;width:100%}
+.route-list-theory{padding:0 14px 12px}
+.route-list-theory>summary{cursor:pointer;min-height:32px;padding:6px 0;color:var(--muted);font-size:.875rem}
+.route-list-theory .route-theory-reading{padding-top:12px;margin-top:0}
+@keyframes theory-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.theory-controls button[aria-busy=true]:before{animation:none}}
+@media(max-width:500px){.theory-controls{gap:10px}.theory-controls p{flex-basis:100%}.route-theory-reading{padding-top:14px}.route-list-theory{padding-inline:6px}}

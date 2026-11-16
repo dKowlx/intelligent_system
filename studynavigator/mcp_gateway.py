@@ -12,10 +12,10 @@ from typing import Any
 
 from mcp import Client
 from mcp.client.stdio import StdioServerParameters
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, StrictBool, field_validator
 
 from .catalog import PROJECT_ROOT
-from .mcp_server import Identifier, Query, ResultLimit
+from .mcp_server import Identifier, Query, ResultLimit, TheoryTopics
 
 
 class ToolArguments(BaseModel):
@@ -31,6 +31,9 @@ class GetArguments(ToolArguments):
 
 
 class SearchArguments(ToolArguments):
+    include_research: StrictBool = False
+    include_theory: StrictBool = False
+    theory_topics: TheoryTopics | None = None
     query: Query
     limit: ResultLimit = 5
     assignment_id: Identifier | None = None
@@ -110,7 +113,13 @@ class MCPGateway:
         if not isinstance(arguments, dict):
             raise GatewayError("invalid_arguments", "Аргументы инструмента должны быть объектом.")
         try:
-            return model.model_validate(arguments).model_dump(exclude_none=True)
+            validated = model.model_validate(arguments).model_dump(exclude_none=True)
+            if name == "search_materials" and not validated.get("include_research"):
+                validated.pop("include_research", None)
+            if name == "search_materials" and not validated.get("include_theory"):
+                validated.pop("include_theory", None)
+                validated.pop("theory_topics", None)
+            return validated
         except ValidationError as exc:
             raise GatewayError("invalid_arguments", "Некорректные параметры учебного инструмента.") from exc
 

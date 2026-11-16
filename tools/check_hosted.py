@@ -100,7 +100,7 @@ def check_hosted(base_url, *, live=False, timeout=30, skip_http_redirect=False, 
             response = request(client, "GET", "/health")
             data = json_data(response)
             record("health", http_status(response) == 200 and data.get("status") == "ok", f"HTTP {http_status(response)}; status={data.get('status')}")
-            for name, path, marker in (("index", "/", "StudyNavigator"), ("javascript", "/static/app.js", "getElementById"),
+            for name, path, marker in (("index", "/", "Project Navigator"), ("javascript", "/static/app.js", "getElementById"),
                                        ("stylesheet", "/static/styles.css", ":root"), ("defense_html", "/static/defense.html", "slide-8")):
                 response = request(client, "GET", path)
                 record(name, http_status(response) == 200 and marker in response.text if response is not None else False,

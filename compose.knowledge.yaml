@@ -1,0 +1,8 @@
+# Optional shared corpus: enable alongside compose.yaml on the deployed server.
+services:
+  app:
+    environment:
+      STUDYNAV_KNOWLEDGE_ROOT: /app/knowledge
+      STUDYNAV_KNOWLEDGE_DB_PATH: /app/var/knowledge.sqlite3
+    volumes:
+      - ${STUDYNAV_KNOWLEDGE_HOST_PATH:-/opt/project-navigator/knowledge}:/app/knowledge:ro

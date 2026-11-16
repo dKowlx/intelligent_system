@@ -108,3 +108,34 @@ async def test_completed_work_returns_its_result_without_leaving_a_monitor():
     finally:
         request.cancel()
         await asyncio.gather(request, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fails", [False, True])
+async def test_immediate_work_reaps_monitor_when_disconnect_check_swallows_cancel(fails):
+    class CancelScopeConnection:
+        monitor = None
+        absorbed = False
+
+        async def is_disconnected(self):
+            self.monitor = asyncio.current_task()
+            try:
+                await asyncio.sleep(10)
+            except asyncio.CancelledError:
+                self.absorbed = True
+            return False
+
+    connection = CancelScopeConnection()
+
+    async def immediate():
+        if fails:
+            raise ValueError("invalid proposal")
+        return {"preview": True}
+
+    if fails:
+        with pytest.raises(ValueError, match="invalid proposal"):
+            await asyncio.wait_for(connected_request(connection, immediate(), timeout=2), 1)
+    else:
+        assert await asyncio.wait_for(connected_request(connection, immediate(), timeout=2), 1) == {"preview": True}
+    assert connection.absorbed
+    assert connection.monitor.done()

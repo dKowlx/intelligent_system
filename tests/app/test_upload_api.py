@@ -187,7 +187,7 @@ def test_pending_assignment_does_not_generate_fake_answers_or_a_plan(client):
         [("scan.pdf", text_pdf(""))],
         [("not-a-pdf.txt", b"plain text pretending to be a file")],
         [(f"document-{index}.pdf", text_pdf("Valid material")) for index in range(4)],
-        [("too-long.pdf", text_pdf("A" * 16001))],
+        [("too-long.pdf", text_pdf("A" * 100001))],
     ],
     ids=["corrupt", "no-text-layer", "wrong-format", "four-files", "too-much-text"],
 )
@@ -458,3 +458,14 @@ async def test_cancelling_pdf_parse_kills_and_reaps_the_child(monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await task
     assert process.killed and process.reaped
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name,data,code,message", [
+    ("blank.pdf", text_pdf(""), "no_text_layer", "В «blank.pdf» нет извлекаемого текста. Нужен текстовый PDF; сканы пока не поддерживаются."),
+    ("long.pdf", text_pdf("a" * 100_001), "text_too_large", "В материалах больше 100 000 символов текста. Загрузите только страницы с заданием."),
+])
+async def test_real_extraction_child_preserves_validation_errors(name, data, code, message):
+    with pytest.raises(UploadError) as error:
+        await extract_uploaded_documents([(name, data)], timeout=10)
+    assert (error.value.code, error.value.message, error.value.status_code) == (code, message, 422)

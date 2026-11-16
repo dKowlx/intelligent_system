@@ -6,7 +6,8 @@
 docs
 tests
 evals
-tools
+tools/*
+!tools/index_knowledge.py
 var
 presentation
 __pycache__

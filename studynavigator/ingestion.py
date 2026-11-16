@@ -22,13 +22,14 @@ from typing import Any
 
 from pypdf import PdfReader, apply_configuration
 from pypdf.errors import LimitReachedError
-from pypdf.generic import ArrayObject
+from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, NameObject
+
+from .limits import MAX_TEXT_CHARACTERS
 
 from .catalog import CatalogError, Store, _normalize
 
 MAX_FILES = 3
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
-MAX_TEXT_CHARACTERS = 16_000
 MAX_PAGES = 100
 MAX_PAGE_STREAM_BYTES = 4 * 1024 * 1024
 CHUNK_CHARACTERS = 1_200
@@ -87,6 +88,56 @@ def _check_page_stream(page: Any) -> None:
             raise UploadError("pdf_too_complex", "Одна из страниц PDF слишком сложная для MVP. Сократите файл.")
 
 
+def _recover_legacy_type3_unicode(page: Any) -> None:
+    """Recover byte-named Cyrillic glyphs in old Type3 fonts, in memory only.
+
+    These fonts lack ToUnicode and name their glyphs /xC0 ... /xFF rather
+    than Adobe glyph names. Do not rewrite extracted text: literal /xHH text,
+    other font types, explicit Unicode maps and custom math glyphs stay intact.
+    """
+    resources = page.get("/Resources", DictionaryObject()).get_object()
+    fonts = resources.get("/Font", DictionaryObject()).get_object()
+    for reference in fonts.values():
+        font = reference.get_object()
+        if font.get("/Subtype") != "/Type3" or "/ToUnicode" in font:
+            continue
+        encoding = font.get("/Encoding")
+        if encoding is None:
+            continue
+        encoding = encoding.get_object()
+        if not isinstance(encoding, DictionaryObject):
+            continue
+        differences = encoding.get("/Differences")
+        if differences is None:
+            continue
+        differences = differences.get_object()
+        if not isinstance(differences, ArrayObject):
+            continue
+        code = 0
+        mappings = {}
+        for glyph in differences:
+            if isinstance(glyph, int):
+                code = glyph
+                continue
+            # Require the glyph's name to agree with its encoded byte.
+            if re.fullmatch(r"/x[0-9A-Fa-f]{2}", str(glyph)) and int(str(glyph)[2:], 16) == code:
+                if 0x20 <= code <= 0x7E or code in (0xA8, 0xB8) or 0xC0 <= code <= 0xFF:
+                    mappings[code] = bytes([code]).decode("cp1251")
+            code += 1
+        if not any(ord(character) >= 0x400 for character in mappings.values()):
+            continue
+        pairs = [f"<{code:02X}> <{character.encode('utf-16-be').hex()}>" for code, character in mappings.items()]
+        cmap = ("/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n"
+                "/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n"
+                "/CMapName /LegacyCyrillic def\n/CMapType 2 def\n"
+                "1 begincodespacerange\n<00> <FF>\nendcodespacerange\n"
+                + f"{len(pairs)} beginbfchar\n" + "\n".join(pairs)
+                + "\nendbfchar\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n")
+        stream = DecodedStreamObject()
+        stream.set_data(cmap.encode("ascii"))
+        font[NameObject("/ToUnicode")] = stream
+
+
 def extract_documents(files: list[tuple[str, bytes]]) -> list[dict[str, Any]]:
     """Validate every file before any disk/DB writes; preserve page numbering."""
     with apply_configuration(
@@ -116,13 +167,14 @@ def _extract_documents(files: list[tuple[str, bytes]]) -> list[dict[str, Any]]:
             pages = []
             for page in reader.pages:
                 _check_page_stream(page)
+                _recover_legacy_type3_unicode(page)
                 text = (page.extract_text() or "").replace("\x00", "")
                 # PDF positioning can put every word on its own artificial line.
                 # Keep page boundaries, but show a readable text flow within them.
                 text = re.sub(r"\s+", " ", text).strip()
                 total_characters += len(text)
                 if total_characters > MAX_TEXT_CHARACTERS:
-                    raise UploadError("text_too_large", "В материалах больше 16 000 символов текста. Загрузите только страницы с заданием.")
+                    raise UploadError("text_too_large", "В материалах больше 100 000 символов текста. Загрузите только страницы с заданием.")
                 pages.append(text)
             if not any(page.strip() for page in pages):
                 raise UploadError("no_text_layer", f"В «{filename}» нет извлекаемого текста. Нужен текстовый PDF; сканы пока не поддерживаются.")

@@ -39,7 +39,9 @@ def test_seed_is_reproducible_and_keeps_unknown_dates(database):
 def test_source_contract_and_read_only_database(database):
     store = Store(database)
     source = store.get_source("personal-project-p1")
-    assert set(source) == {"source_id", "title", "page", "section", "excerpt", "url"}
+    assert set(source) == {"source_id", "title", "page", "section", "excerpt", "url", "preview", "summary", "kind", "file_url", "external_url"}
+    assert source["preview"] == source["excerpt"]
+    assert source["summary"] == source["excerpt"][:240]
     assert source["page"] == 1 and source["url"] == "/sources/personal-project-p1"
     assert "LMS" in source["excerpt"] and "README.md" in source["excerpt"]
     connection = store._connect()
@@ -167,3 +169,23 @@ async def test_request_cancellation_does_not_destroy_shared_client(database):
     assert gateway.trace[-1]["status"] == "cancelled"
     fake.delay = 0
     assert await gateway.call("search_materials", {"query": "MCP"}) == {"matches": []}
+
+
+@pytest.mark.asyncio
+async def test_exercise_number_and_formula_retrieval_cross_actual_mcp(database):
+    store = Store(database, workspace_id="math-workspace")
+    # Distinct fragments make an OR search over generic words and numbers
+    # insufficient: the combined locator must rank above a distracting exercise.
+    distracting = "С. §4 № 8\nРешить линейное уравнение y′ + y = 0.\n" + "Обзор методов. " * 90
+    condition = "С. §8 № 4\nРешить линейное однородное уравнение y″ − y′ − 2y = 0."
+    assignment = store.create_text_assignment("Практика", distracting + "\n" + condition)["assignment"]
+    async with MCPGateway(database, workspace_id="math-workspace") as gateway:
+        for query in ("Реши §8 №4", "y'' - y' - 2y = 0"):
+            result = await gateway.call("search_materials", {
+                "query": query, "assignment_id": assignment["assignment_id"], "limit": 1})
+            assert "y″ − y′ − 2y = 0" in result["matches"][0]["excerpt"]
+        assert (await gateway.call("search_materials", {
+            "query": "§8 №4", "assignment_id": "missing"}))["matches"] == []
+    async with MCPGateway(database, workspace_id="other-workspace") as gateway:
+        assert (await gateway.call("search_materials", {
+            "query": "§8 №4", "assignment_id": assignment["assignment_id"]}))["matches"] == []

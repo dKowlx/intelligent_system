@@ -6,7 +6,7 @@ import re
 from datetime import date as CalendarDate
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StringConstraints, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StringConstraints, ValidationError, field_validator, model_validator, model_serializer
 
 from .catalog import CatalogError
 
@@ -23,9 +23,17 @@ class CardError(CatalogError):
 
 class CardField(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    id: SourceID | None = None
     text: Text = ""
     origin: Literal["document", "user"] = "user"
     source_ids: list[SourceID] = Field(default_factory=list, max_length=5)
+
+    @model_serializer(mode="wrap")
+    def omit_absent_id(self, handler):
+        result = handler(self)
+        if self.id is None:
+            result.pop("id", None)
+        return result
 
 
 class CardDeadline(BaseModel):
@@ -53,6 +61,37 @@ class CardDeadline(BaseModel):
         return self
 
 
+class CardSubstep(BaseModel):
+    """A concrete part of the parent's work, not a separate progress record."""
+    model_config = ConfigDict(extra="forbid")
+    id: SourceID
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    minutes: Annotated[StrictInt, Field(ge=1, le=4800)]
+    done_when: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+def apportion_substeps(substeps, minutes):
+    """Reserve one minute per step, then distribute the remainder by weight.
+
+    Largest remainders break ties in the authored order. This also handles a
+    user changing the parent estimate without invalidating its decomposition.
+    """
+    if not substeps:
+        return []
+    if minutes < len(substeps):
+        raise ValueError("task minutes must allow at least one minute per substep; combine or reestimate substeps")
+    total = sum(step.minutes for step in substeps)
+    if total == minutes:
+        return substeps
+    budget = minutes - len(substeps)
+    shares = [divmod(budget * step.minutes, total) for step in substeps]
+    allocated = [1 + share[0] for share in shares]
+    order = sorted(range(len(substeps)), key=lambda index: (-shares[index][1], index))
+    for index in order[:minutes - sum(allocated)]:
+        allocated[index] += 1
+    return [step.model_copy(update={"minutes": duration}) for step, duration in zip(substeps, allocated)]
+
+
 class CardTask(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: Annotated[str, StringConstraints(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")]
@@ -60,6 +99,27 @@ class CardTask(BaseModel):
     minutes: Annotated[StrictInt, Field(ge=1, le=4800)]
     estimate_source: Literal["estimate", "user", "document"] = "estimate"
     source_ids: list[SourceID] = Field(default_factory=list, max_length=5)
+    requirement_ids: list[SourceID] = Field(default_factory=list, max_length=12)
+    expected_result: Text = ""
+    done_when: Text = ""
+    estimate_basis: Text = ""
+    min_minutes: Annotated[StrictInt, Field(ge=1, le=4800)] | None = None
+    max_minutes: Annotated[StrictInt, Field(ge=1, le=4800)] | None = None
+    priority: Literal["high", "medium", "low"] = "medium"
+    priority_reason: Text = ""
+    depends_on: list[SourceID] = Field(default_factory=list, max_length=20)
+    substeps: list[CardSubstep] = Field(default_factory=list, max_length=32)
+
+    @model_validator(mode="after")
+    def estimate_range(self):
+        if len({step.id for step in self.substeps}) != len(self.substeps):
+            raise ValueError("substep IDs must be unique within a task")
+        self.substeps = apportion_substeps(self.substeps, self.minutes)
+        if (self.min_minutes is None) != (self.max_minutes is None):
+            raise ValueError("provide both estimate bounds")
+        if self.min_minutes is not None and not self.min_minutes <= self.minutes <= self.max_minutes:
+            raise ValueError("estimate must be within bounds")
+        return self
 
 
 class Card(BaseModel):
@@ -79,6 +139,36 @@ class Card(BaseModel):
             raise ValueError("requirement and criterion entries must not be empty")
         if len({task.id for task in self.tasks}) != len(self.tasks):
             raise ValueError("task IDs must be unique")
+        used = {item.id for item in self.requirements if item.id is not None}
+        if len(used) != sum(item.id is not None for item in self.requirements):
+            raise ValueError("requirement IDs must be unique")
+        for item in self.requirements:
+            if item.id is None:
+                index = 1
+                while f"req-{index}" in used:
+                    index += 1
+                item.id = f"req-{index}"
+                used.add(item.id)
+        task_ids = {task.id for task in self.tasks}
+        for task in self.tasks:
+            if any(ref not in used for ref in task.requirement_ids):
+                raise ValueError("unknown requirement reference")
+            if any(ref not in task_ids for ref in task.depends_on):
+                raise ValueError("unknown dependency")
+        visited, active = set(), set()
+        by_id = {task.id: task for task in self.tasks}
+        def visit(identifier):
+            if identifier in active:
+                raise ValueError("cyclic task dependencies")
+            if identifier in visited:
+                return
+            active.add(identifier)
+            for ref in by_id[identifier].depends_on:
+                visit(ref)
+            active.remove(identifier)
+            visited.add(identifier)
+        for identifier in by_id:
+            visit(identifier)
         return self
 
 
@@ -86,6 +176,8 @@ def parse_card(value: Card | dict[str, Any]) -> Card:
     try:
         return Card.model_validate(value)
     except (ValidationError, TypeError, ValueError) as exc:
+        if "at least one minute per substep" in str(exc):
+            raise CardError("invalid_card", "На каждый шаг нужна хотя бы одна минута. Увеличьте оценку задачи или объедините шаги.") from exc
         raise CardError("invalid_card", "Проверьте поля карточки, даты и оценки длительности.") from exc
 
 
@@ -177,12 +269,12 @@ def confirm_card(proposed: Card | dict[str, Any], draft: dict[str, Any] | None,
     def normalize(item: CardField, candidates: list[CardField]) -> CardField:
         unchanged = any(previous.origin == "document" and previous.text == item.text
                         and previous.source_ids == item.source_ids for previous in candidates)
-        return item if item.origin == "document" and unchanged else CardField(text=item.text)
+        return item if item.origin == "document" and unchanged else CardField(id=item.id, text=item.text)
 
     changed_scope = old is None or any([
         parsed.goal.text != old.goal.text,
         parsed.deliverable.text != old.deliverable.text,
-        [item.text for item in parsed.requirements] != [item.text for item in old.requirements],
+        {item.id: item.text for item in parsed.requirements} != {item.id: item.text for item in old.requirements},
     ])
     parsed.goal = normalize(parsed.goal, [old.goal] if old else [])
     parsed.deliverable = normalize(parsed.deliverable, [old.deliverable] if old else [])
@@ -200,9 +292,15 @@ def confirm_card(proposed: Card | dict[str, Any], draft: dict[str, Any] | None,
         normalized_tasks = []
         for task in parsed.tasks:
             previous = next((item for item in old.tasks if item.id == task.id), None) if old else None
-            unchanged = previous is not None and task == previous
+            unchanged = previous is not None and all(
+                getattr(task, key) == getattr(previous, key)
+                for key in ("title", "minutes", "estimate_source", "source_ids", "estimate_basis", "min_minutes", "max_minutes"))
             if not unchanged:
-                task = CardTask(id=task.id, title=task.title, minutes=task.minutes, estimate_source="user")
+                data = task.model_dump()
+                data.update(estimate_source="user", source_ids=[])
+                if previous is not None and task.minutes != previous.minutes:
+                    data.update(min_minutes=None, max_minutes=None, estimate_basis="Оценка пользователя")
+                task = CardTask(**data)
             normalized_tasks.append(task)
         parsed.tasks = normalized_tasks
     parsed.questions = []

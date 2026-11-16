@@ -137,3 +137,16 @@ def test_second_invalid_final_still_returns_503_after_exactly_one_repair(tmp_pat
     assert response.json()["error"]["code"] == "invalid_model_response"
     assert len(observed) == 2
     assert INVALID_CANARY not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_repeated_live_string_facts_and_unknown_answer_basis_are_rejected():
+    invalid = final_turn(facts=["Исследования подтверждают совет"], source_ids=["personal-project-p1"])
+    value = json.loads(invalid["content"])
+    value["answer_basis"] = "research"
+    invalid["content"] = json.dumps(value, ensure_ascii=False)
+    provider, observed = provider_with_turns([invalid, invalid])
+    with pytest.raises(AgentError) as error:
+        await StudyAgent(fixture_gateway(), provider).run("Как делать перерывы?")
+    assert error.value.code == "invalid_model_response"
+    assert len(observed) == 2

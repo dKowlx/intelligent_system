@@ -15,6 +15,8 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.lock \
 COPY studynavigator/ ./studynavigator/
 COPY web/ ./web/
 COPY data/ ./data/
+COPY tools/index_knowledge.py ./tools/index_knowledge.py
+COPY deploy/backup.py ./deploy/backup.py
 COPY *.pdf ./
 RUN mkdir -p /app/var && chown study:study /app/var
 

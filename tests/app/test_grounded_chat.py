@@ -58,7 +58,12 @@ def test_uploaded_controller_reads_real_mcp_twice_then_sends_one_json_request(mo
     assert "tools" not in payload and "tool_choice" not in payload
     assert payload["response_format"] == {"type": "json_object"}
     assert [item["role"] for item in payload["messages"]] == ["system", "user"]
-    assert len(payload["messages"][0]["content"].split()) <= 115
+    trusted = payload["messages"][0]["content"]
+    contract = json.loads(trusted.split("OUTPUT_SCHEMA=", 1)[1])
+    assert contract["properties"]["facts"]["const"] == []
+    assert contract["properties"]["answer_basis"]["enum"] == ["materials", "project_context", "reasoning"]
+    assert contract["$defs"]["ActionOperation"]["properties"]["op"]["enum"] == ["add", "update", "complete", "regroup"]
+    assert '"op":"complete"' in trusted
     assert card_canary not in payload["messages"][0]["content"] and history_canary not in payload["messages"][0]["content"]
     data = json.loads(payload["messages"][1]["content"])
     assert data["question"] == question

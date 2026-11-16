@@ -11,9 +11,10 @@ from pathlib import Path
 
 import pytest
 from pypdf import PdfWriter
-from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, NameObject, NumberObject
 
 from studynavigator.catalog import CatalogError, PDF_PATH, Store, seed_database
+from studynavigator.cards import CardError
 from studynavigator.ingestion import (
     MAX_PAGE_STREAM_BYTES,
     MAX_UPLOAD_BYTES,
@@ -140,7 +141,7 @@ def test_upload_limits_include_combined_bytes_text_and_page_count():
         extract_documents([("large.pdf", b"%PDF-" + b"x" * MAX_UPLOAD_BYTES)])
     assert error.value.code == "upload_too_large" and error.value.status_code == 413
     with pytest.raises(UploadError) as error:
-        extract_documents([("long.pdf", text_pdf("a" * 8_100)), ("longer.pdf", text_pdf("b" * 8_100))])
+        extract_documents([("long.pdf", text_pdf("a" * 50_001)), ("longer.pdf", text_pdf("b" * 50_000))])
     assert error.value.code == "text_too_large"
     with pytest.raises(UploadError) as error:
         extract_documents([("pages.pdf", text_pdf(*(["text"] * 101)))])
@@ -232,3 +233,83 @@ def test_actual_project_pdf_extracts_without_invented_requirements():
     assert "Рубежный контроль" in extracted["pages"][0]
     assert "Критерии оценивания" in extracted["pages"][1]
     assert all("\n" not in page and "  " not in page for page in extracted["pages"])
+
+
+def test_pdf_set_accepts_exactly_100000_characters_and_rejects_next(storage):
+    database, root = storage
+    files = [("first.pdf", text_pdf("a" * 50_000)), ("second.pdf", text_pdf("b" * 50_000))]
+    extracted = extract_documents(files)
+    assert sum(document["character_count"] for document in extracted) == 100_000
+    assignment = ingest_documents(database, root, "owner-a", files)["assignment"]
+    assert sum(document["character_count"] for document in assignment["documents"]) == 100_000
+    with pytest.raises(CardError) as error:
+        Store(database, "owner-a").append_material_text(assignment["assignment_id"], "Extra", "x")
+    assert error.value.code == "text_too_large"
+
+
+def test_text_and_pdf_materials_share_project_character_limit(storage):
+    database, root = storage
+    store = Store(database, "owner-a")
+    assignment = store.create_text_assignment("Project", "a" * 50_000)["assignment"]
+    identifier = assignment["assignment_id"]
+    store.append_material_pdfs(identifier, root, [("second.pdf", text_pdf("b" * 50_000))])
+    with pytest.raises(UploadError) as error:
+        store.append_material_pdfs(identifier, root, [("extra.pdf", text_pdf("x"))])
+    assert error.value.code == "material_limit"
+    assert len(store.get_assignment(identifier)["assignment"]["documents"]) == 1
+    assert len(list(root.iterdir())) == 1
+
+
+def legacy_type3_pdf(*, subtype="/Type3", to_unicode=None, mismatched=False):
+    """A byte-named Cyrillic font beside an ordinary ASCII font, no external file."""
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    codes = sorted(set("ПРОГРАММА".encode("cp1251")) | {0x15, 0xBE})
+    differences = ArrayObject()
+    for code in codes:
+        differences.extend([NumberObject(code), NameObject(f"/x{code + 1 if mismatched else code:02X}")])
+    legacy = DictionaryObject({NameObject("/Type"): NameObject("/Font"), NameObject("/Subtype"): NameObject(subtype),
+        NameObject("/Encoding"): DictionaryObject({NameObject("/Differences"): differences})})
+    if to_unicode is not None:
+        stream = DecodedStreamObject()
+        stream.set_data(to_unicode)
+        legacy[NameObject("/ToUnicode")] = writer._add_object(stream)
+    ordinary = DictionaryObject({NameObject("/Type"): NameObject("/Font"), NameObject("/Subtype"): NameObject("/Type1"),
+        NameObject("/BaseFont"): NameObject("/Helvetica")})
+    fonts = DictionaryObject({NameObject("/F1"): writer._add_object(legacy), NameObject("/F2"): writer._add_object(ordinary)})
+    page[NameObject("/Resources")] = writer._add_object(DictionaryObject({NameObject("/Font"): writer._add_object(fonts)}))
+    stream = DecodedStreamObject()
+    stream.set_data(b"BT /F1 12 Tf 72 720 Td <" + "ПРОГРАММА".encode("cp1251").hex().encode() + b"> Tj <15BE> Tj /F2 12 Tf 0 -20 Td (literal /xCF and x+y=1) Tj ET")
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def test_byte_named_type3_cyrillic_is_decoded_without_rewriting_literal_text_or_math():
+    data = legacy_type3_pdf()
+    from pypdf import PdfReader
+    # Reproduce the original parser failure in the same realistic font fixture.
+    assert "/xCF/xD0/xCE" in PdfReader(BytesIO(data)).pages[0].extract_text()
+    document = extract_documents([("legacy.pdf", data)])[0]
+    text = document["pages"][0]
+    assert "ПРОГРАММА" in text
+    assert "literal /xCF and x+y=1" in text
+    assert "/x15/xBE" in text  # custom math/punctuation cannot be inferred as CP1251
+    assert document["character_count"] == len(text)
+
+
+@pytest.mark.parametrize("subtype,mismatched", [("/Type1", False), ("/Type3", True)])
+def test_legacy_recovery_requires_type3_and_matching_byte_names(subtype, mismatched):
+    text = extract_documents([("other.pdf", legacy_type3_pdf(subtype=subtype, mismatched=mismatched))])[0]["pages"][0]
+    assert "ПРОГРАММА" not in text
+    assert "literal /xCF and x+y=1" in text
+
+
+def test_existing_type3_unicode_map_is_authoritative():
+    cmap = (b"begincmap\n1 begincodespacerange\n<00> <FF>\nendcodespacerange\n"
+            b"1 beginbfchar\n<CF> <03A9>\nendbfchar\nendcmap")
+    text = extract_documents([("unicode.pdf", legacy_type3_pdf(to_unicode=cmap))])[0]["pages"][0]
+    assert "Ω" in text
+    assert "ПРОГРАММА" not in text
+    assert "literal /xCF and x+y=1" in text

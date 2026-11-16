@@ -1,29 +1,31 @@
 # Один VPS: Docker Compose и Caddy
 
 Исходники находятся в `/opt/studynavigator/app`, серверные настройки — отдельно
-в `/opt/studynavigator/server.env` с правами `0600`. Используйте `.env.example`
-как шаблон; ключ остаётся только на сервере. В командах ниже `--env-file /dev/null`
-отключает автоматическую загрузку локального `.env` самим Compose; приложение
-получает настройки через `env_file` из серверного файла.
+в `/opt/studynavigator/server.env` с правами `0600`. Сервер: `root@136.234.80.52`.
+Используйте `.env.example` как шаблон; ключ остаётся только на сервере.
+Все команды ниже выполняются на VPS из каталога приложения. Compose получает
+подстановки из `--env-file ../server.env`; приложение получает настройки
+через `env_file` из того же серверного файла. Укажите в нём
+`DOMAIN=navigator.136-234-80-52.sslip.io`.
 
 ## Запуск и проверка
 
 Нужны Docker Engine с Compose V2, свободные TCP 80/443, UDP 443 для HTTP/3,
-исходящий HTTPS и DNS, указывающий на VPS. Основной адрес:
-`https://studynavigator.136-234-76-207.sslip.io`.
+исходящий HTTPS и DNS, указывающий на VPS. Настроенный адрес (его доступность и HTTPS проверяются отдельно):
+`https://navigator.136-234-80-52.sslip.io/`.
 
 ```sh
 cd /opt/studynavigator/app
-docker compose --env-file /dev/null config --quiet
-docker compose --env-file /dev/null build --pull app
-docker compose --env-file /dev/null run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile
-docker compose --env-file /dev/null up -d --wait
-docker compose --env-file /dev/null ps
-curl --fail https://studynavigator.136-234-76-207.sslip.io/health
+docker compose --env-file ../server.env -f compose.yaml -f compose.knowledge.yaml config --quiet
+docker compose --env-file ../server.env -f compose.yaml -f compose.knowledge.yaml build --pull app
+docker compose --env-file ../server.env -f compose.yaml -f compose.knowledge.yaml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile
+docker compose --env-file ../server.env -f compose.yaml -f compose.knowledge.yaml up -d --wait
+docker compose --env-file ../server.env -f compose.yaml -f compose.knowledge.yaml ps
+curl --fail https://navigator.136-234-80-52.sslip.io/health
 ```
 
 Для другого файла настроек задайте `STUDYNAV_ENV_FILE`, для другого домена —
-`DOMAIN` перед командами Compose. Не выводите `docker compose config`
+`DOMAIN` в выбранном env-файле. Не выводите `docker compose config`
 без `--quiet`: развёрнутые настройки могут включать API-ключ.
 
 Backend работает от `10001:10001`, слушает `0.0.0.0:8000` внутри контейнера и
@@ -40,18 +42,24 @@ PDF и журнал расходов. При первом создании Docke
 и ротацию stdout/stderr до трёх файлов по 10 MiB. Docker должен быть включён
 в автозапуск на VPS. Не используйте `down -v` для обычного обновления.
 
-Совокупный предел известных расходов API — **500 ₽**. Из него ранний локальный
-пилот уже израсходовал **23,0777 ₽**, поэтому на сервере установлен потолок
-**476,9223 ₽** через `STUDYNAV_LIVE_BUDGET_RUB=476.9223`.
-Все прежние серверные попытки уже включены в его ledger. Это накопительный предел чата и анализа вместе,
-а не ежедневная квота. Локальный диагностический runner по-прежнему ограничен
-25 ₽. При изменении существующего предела сначала остановите `app`, сохраните
-копию ledger, затем согласованно обновите env и `budget_rub` журнала с записью
-разрешения в `budget_extensions`. Все попытки, расходы, неизвестные резервы
-и тарифы сохраняются. Не удаляйте журнал и не очищайте блокировку
-`usage_exceeded_reservation`: увеличение лимита её причину не исправляет.
-Если появятся дополнительные платные расходы вне серверного ledger, их нужно
-вычесть из серверного потолка отдельно. Это не ограничитель всего аккаунта Billing.
+Совокупный предел известных расходов API — **500 ₽**. Ранний локальный пилот
+израсходовал **23,0777 ₽**; эта сумма вычтена из серверного потолка:
+`STUDYNAV_LIVE_BUDGET_RUB=476.9223`. Чат, анализ и embeddings используют
+один серверный ledger, включая индексацию корпуса и query embeddings.
+Это накопительный предел, а не ежедневная квота и не лимит всего аккаунта Billing.
+
+Известный снимок `var/budget500-after.json` содержит 32 попытки и **36,7536 ₽**.
+Это исторический снимок, а не текущий остаток нового сервера. Последнее состояние
+старого сервера `136.234.76.207` не проверено: подключение завершилось connection reset.
+Поэтому нельзя утверждать, что все прежние серверные попытки учтены текущим ledger.
+Если обнаружены расходы вне него, их нужно отдельно вычесть из доступного бюджета.
+
+Локальный диагностический runner ограничен 25 ₽. При изменении существующего
+предела сначала остановите `app`, сохраните ledger, затем согласованно обновите
+серверную настройку и `budget_rub` журнала с разрешением в `budget_extensions`.
+Сохраняйте попытки, расходы, неизвестные резервы и тарифы. Не удаляйте ledger
+и не очищайте `usage_exceeded_reservation`: увеличение лимита не исправляет
+причину этой блокировки.
 
 `/health` проверяет приложение и MCP при старте, но не вызывает платную модель.
 Успешный healthcheck не заменяет проверку пользовательского сценария с LLM.
@@ -59,46 +67,101 @@ PDF и журнал расходов. При первом создании Docke
 Для перезагрузки Caddy после изменения файла:
 
 ```sh
-docker compose --env-file /dev/null exec caddy caddy reload --config /etc/caddy/Caddyfile
-docker compose --env-file /dev/null logs --tail 100 app caddy
+docker compose --env-file ../server.env -f compose.yaml -f compose.knowledge.yaml exec caddy caddy reload --config /etc/caddy/Caddyfile
+docker compose --env-file ../server.env -f compose.yaml -f compose.knowledge.yaml logs --tail 100 app caddy
 ```
 
-## Копия данных и восстановление
+## Общие исследования
 
-Копия согласованна, когда `app` остановлен. Она содержит пользовательские PDF,
-SQLite и журнал расходов; храните её с ограниченным доступом и скопируйте вне VPS.
-Настройки и ключ не входят в том и требуют отдельного защищённого хранения.
+Корпус хранится только на сервере в `/opt/project-navigator/knowledge`.
+`compose.knowledge.yaml` подключает его в приложение как `/app/knowledge:ro`.
+Индекс находится в постоянном томе: `/app/var/knowledge.sqlite3`
+(`var/knowledge.sqlite3` относительно каталога приложения в контейнере).
+Переменные `STUDYNAV_KNOWLEDGE_ROOT=/app/knowledge` и
+`STUDYNAV_KNOWLEDGE_DB_PATH=/app/var/knowledge.sqlite3` задаёт overlay.
+Исследования служат источниками рекомендаций; они не становятся требованиями
+пользовательского проекта. Их PDF, извлечённые тексты и индекс не добавляются
+в Git и не требуются для обычных offline-тестов.
+
+Индексация запускается явно на сервере. Предпросмотр не пишет индекс и не
+вызывает embeddings; `--apply --embed` разрешает запись и платные запросы
+в пределах общего ledger. Для текущего корпуса используйте явные ограничения:
 
 ```sh
 cd /opt/studynavigator/app
-umask 077
-mkdir -p /opt/studynavigator/backups
-docker compose --env-file /dev/null stop app
-docker run --rm --network none --read-only --user 0:0 --entrypoint tar \
-  -v studynavigator_app_data:/data:ro studynavigator:local \
-  -C /data -czf - . > /opt/studynavigator/backups/app-var.tar.gz
-docker compose --env-file /dev/null start app
+docker compose --env-file ../server.env -f compose.yaml -f compose.knowledge.yaml exec app \
+  python tools/index_knowledge.py --root /app/knowledge --db /app/var/knowledge.sqlite3 \
+  --max-chunks 157 --max-input-bound 550000
+docker compose --env-file ../server.env -f compose.yaml -f compose.knowledge.yaml exec app \
+  python tools/index_knowledge.py --root /app/knowledge --db /app/var/knowledge.sqlite3 \
+  --max-chunks 157 --max-input-bound 550000 --apply --embed
 ```
 
-Если архивирование завершилось ошибкой, всё равно запустите `app` последней
-командой. Для восстановления остановите `app`, сохраните текущие данные и
-актуальный журнал расходов отдельно. Установите `STUDYNAV_MODE=offline` в
-серверном файле. На пустом томе выполните:
+Вторую команду выполняют только после проверки предпросмотра. Векторы кешируются
+по хешу текста, модели и размерности; повторный запуск с теми же параметрами
+использует сохранённые embeddings. Новые фрагменты или другая модель требуют
+новых платных запросов. Не запускайте индексацию одновременно с резервированием.
+
+## Копия данных и восстановление
+
+На сервере установлен `deploy/run-backup.sh`; он вызывает `deploy/backup.py`
+в отдельном контейнере без сети и без серверного env-файла. Скрипт защищён
+`flock`, останавливает работающий `app` и через trap возвращает его в исходное
+состояние. Если приложение уже было остановлено, резервирование его не запускает.
+При ошибке перезапуска нужно проверить приложение вручную. На время снимка
+не запускайте другие процессы, меняющие индекс, корпус или ledger.
 
 ```sh
-docker volume create studynavigator_app_data
-docker run --rm -i --network none --read-only --user 0:0 --entrypoint sh \
-  -v studynavigator_app_data:/data studynavigator:local \
-  -c 'tar -C /data -xzf - && chown -R 10001:10001 /data' \
-  < /opt/studynavigator/backups/app-var.tar.gz
-docker compose --env-file /dev/null up -d --wait app
+sudo /opt/studynavigator/app/deploy/run-backup.sh
+systemctl status project-navigator-backup.timer
+systemctl list-timers project-navigator-backup.timer
+journalctl -u project-navigator-backup.service --no-pager -n 30
 ```
 
-Восстановление предназначено для пустого тома; создание уже существующего тома
-не очищает его. Перед повторным включением live верните актуальный журнал
-расходов: старый архив откатывает счётчик и может повторно открыть потраченный
-лимит. При отсутствии актуального журнала оставьте offline до явного решения
-о новом бюджете. Проверьте задания, документы и план после восстановления.
+`project-navigator-backup.timer` включён: ежедневный запуск в 03:15–03:20 МСК
+(00:15 UTC плюс случайная задержка до пяти минут). Unit-файлы находятся в `deploy/`.
+Архивы сохраняются в `/opt/studynavigator/backups` с правами `0600`, каталог —
+`0700`. Сначала создаётся временный файл; после проверки tar он получает итоговое
+имя. Старые копии автоматически не удаляются. Для защиты от потери VPS перенесите
+копии в отдельное защищённое хранилище.
+
+Первое резервирование и восстановление во временный каталог на сервере
+проверены: `quick_check` обеих SQLite вернул `ok`, восстановлены 5 источников,
+157 фрагментов, 157 векторов и 5 PDF. Ledger совпал побайтно; архив имел права
+`0600`. Это подтверждает проверенную копию, а не все будущие запуски таймера.
+
+Формат архива создаёт helper, а не сырой tar тома:
+
+| Путь в архиве | Назначение при восстановлении |
+|---|---|
+| `study.db` | `/app/var/study.db` |
+| `uploads/` | `/app/var/uploads/` |
+| `live-budget.json` | `/app/var/live-budget.json` |
+| `live-budget.json.lock` | соседний lock-файл ledger |
+| `knowledge.db` | `/app/var/knowledge.sqlite3` |
+| `knowledge/` | новый каталог корпуса, подключённый как `/app/knowledge:ro` |
+| `manifest.json` | метаданные снимка, отдельно от рабочей БД |
+
+SQLite копируется через backup API, ledger — под его файловой блокировкой.
+Серверный env-файл и API-ключи в архив не входят; храните их отдельно с защитой.
+
+Восстанавливайте копию сначала в **новый отдельный Docker volume и новый каталог
+корпуса**, сохраняя действующий том и текущий ledger. Распакуйте доверенный архив
+во временный каталог и проверьте состав по таблице. Перенесите файлы в новый том,
+переименовав `knowledge.db` в `knowledge.sqlite3`; владельцем данных приложения
+должен быть `10001:10001`, корпус должен читаться этим пользователем. Выполните
+`PRAGMA quick_check` для обеих восстановленных БД и проверьте документы и счётчики.
+
+Только после проверки подготовьте отдельный Compose override: замените том
+`app_data` на новый volume, а `STUDYNAV_KNOWLEDGE_HOST_PATH` — на новый каталог
+корпуса. Сначала запускайте восстановленное приложение в offline. Не распаковывайте
+архив поверх работающего тома или существующего корпуса. Не используйте `down -v`.
+
+Перед возвратом live перенесите **актуальный** ledger и сохраните все неизвестные
+резервы: восстановление старой версии журнала откатывает счётчик и может повторно
+открыть потраченный лимит. Если актуального журнала нет, оставайтесь в offline
+до явного решения о бюджете. После переключения проверьте `/health`, задания,
+пользовательские документы, план и исследовательские источники.
 
 Образы закреплены по digest, Python-зависимости — по версиям и хешам в
 `requirements.lock`. Обновление digest выполняется отдельно вместе с проверкой.

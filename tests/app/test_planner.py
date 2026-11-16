@@ -97,22 +97,20 @@ def test_template_uses_confirmed_assignment_text_with_explicit_estimates():
         "tasks": [],
     }
     proposed = tasks_from_card(card)
-    assert [task["title"] for task in proposed] == [
-        "Выполнить: Рассчитать орбиту Марса", "Выполнить: Сравнить с наблюдениями",
-        "Проверить результат: Отчёт и графики орбит",
-    ]
-    assert [task["minutes"] for task in proposed] == [60, 60, 30]
+    assert len(proposed) == 5
+    assert sum(len(task["substeps"]) for task in proposed) >= 5
+    assert proposed[2]["requirement_ids"] == ["req-1", "req-2"]
     assert all(task["estimate_source"] == "estimate" and not task["source_ids"] for task in proposed)
-    assert len({task["id"] for task in proposed}) == 3
+    assert len({task["id"] for task in proposed}) == 5
     assert all("MCP" not in task["title"] for task in proposed)
 
 
 def test_card_without_requirement_list_still_produces_a_small_content_based_template():
     proposed = tasks_from_card({"goal": {"text": "Сравнить два перевода"},
                                 "deliverable": {"text": "Сравнительное эссе"}})
-    assert len(proposed) == 2
-    assert "Сравнить два перевода" in proposed[0]["title"]
-    assert "Сравнительное эссе" in proposed[1]["title"]
+    assert len(proposed) == 5
+    assert "Сравнить два перевода" in proposed[0]["expected_result"]
+    assert "Сравнительное эссе" in proposed[-1]["expected_result"]
 
 
 def test_existing_card_tasks_are_reused_without_persisted_completion():

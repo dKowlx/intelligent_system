@@ -24,15 +24,21 @@ import httpx
 from .providers import ProviderError
 
 
+# RUB including VAT; uncached input is conservatively charged at full rate.
+# https://aistudio.yandex.ru/ru/docs/ai-studio/pricing (verified 2026-11-14)
 TOKEN_RATE_RUB = Decimal("0.0008")
 PRICE_PROFILES = {"yandexgpt-5.1": (TOKEN_RATE_RUB, TOKEN_RATE_RUB),
-                  "aliceai-llm-flash": (Decimal("0.0001"), Decimal("0.0002"))}
+                  "aliceai-llm-flash": (Decimal("0.0001"), Decimal("0.0002")),
+                  "deepseek-v4.1-flash": (Decimal("0.0003"), Decimal("0.0005")),
+                  "text-embeddings-v2-doc": (Decimal("0.0000101"), Decimal("0")),
+                  "text-embeddings-v2-query": (Decimal("0.0000101"), Decimal("0"))}
 # Server ceiling only; the CLI diagnostic runner separately enforces 25 RUB.
 MAX_BUDGET_RUB = Decimal("500")
-MODEL = re.compile(r"^gpt://[A-Za-z0-9_-]{1,100}/((?:yandexgpt-5\.1|aliceai-llm-flash)(?:/latest)?)$")
+MODEL = re.compile(r"^gpt://[A-Za-z0-9_-]{1,100}/((?:yandexgpt-5\.1|aliceai-llm-flash|deepseek-v4\.1-flash)(?:/latest)?)$")
+EMBEDDING_MODEL = re.compile(r"^emb://[A-Za-z0-9_-]{1,100}/(text-embeddings-v2-(?:doc|query)(?:/latest)?)/?$")
 ALLOWED_PAYLOAD_FIELDS = {
     "model", "messages", "tools", "tool_choice", "max_tokens", "response_format",
-    "temperature", "top_p", "parallel_tool_calls", "stream", "n",
+    "temperature", "top_p", "parallel_tool_calls", "stream", "n", "reasoning_effort",
 }
 
 
@@ -109,8 +115,8 @@ class BudgetTransport(httpx.AsyncBaseTransport):
                 raise ValueError("Invalid ledger metadata")
             for index, attempt in enumerate(ledger["attempts"], 1):
                 if (attempt.get("id") != index or attempt.get("status") not in {"pending", "unknown", "actual"}
-                        or attempt.get("model") not in {"yandexgpt-5.1", "yandexgpt-5.1/latest",
-                                                       "aliceai-llm-flash", "aliceai-llm-flash/latest"}):
+                        or not isinstance(attempt.get("model"), str)
+                        or attempt["model"].removesuffix("/latest") not in PRICE_PROFILES):
                     raise ValueError("Invalid ledger attempt")
                 input_rate, output_rate = _rates(attempt["model"])
                 # Version 1 rows without per-attempt rates are original Pro 5.1
@@ -164,7 +170,20 @@ class BudgetTransport(httpx.AsyncBaseTransport):
 
     @staticmethod
     def _validate_payload(payload):
+        if isinstance(payload, dict) and isinstance(payload.get("model"), str) and payload["model"].startswith("emb://"):
+            match = EMBEDDING_MODEL.fullmatch(payload["model"])
+            text = payload.get("input")
+            if (match is None or set(payload) - {"model", "input", "dimensions", "encoding_format"}
+                    or not isinstance(text, str) or not text.strip() or len(text.encode("utf-8")) > 100_000
+                    or type(payload.get("dimensions")) is not int or payload["dimensions"] != 768
+                    or payload.get("encoding_format", "float") != "float"):
+                raise _failure("eval_budget_invalid")
+            return match.group(1), 0
         if not isinstance(payload, dict) or set(payload) - ALLOWED_PAYLOAD_FIELDS:
+            raise _failure("eval_budget_invalid")
+        if ("reasoning_effort" in payload and
+                (not isinstance(payload["reasoning_effort"], str) or
+                 payload["reasoning_effort"] not in {"none", "minimal", "low", "medium", "high", "xhigh"})):
             raise _failure("eval_budget_invalid")
         match = MODEL.fullmatch(payload.get("model", "")) if isinstance(payload.get("model"), str) else None
         messages, tools = payload.get("messages"), payload.get("tools", [])
@@ -182,7 +201,8 @@ class BudgetTransport(httpx.AsyncBaseTransport):
     async def _input_bound(self, request, payload, body):
         byte_bound = len(body) + 2048
         estimate = {"estimate_strategy": "utf8_bytes", "payload_sha256": hashlib.sha256(body).hexdigest()}
-        if not self.tokenize_payload:
+        if (not self.tokenize_payload or payload["model"].startswith("emb://")
+                or "/deepseek-v4.1-flash" in payload["model"]):
             return byte_bound, estimate
         try:
             literal_payload = body.decode("utf-8")
@@ -276,11 +296,20 @@ class BudgetTransport(httpx.AsyncBaseTransport):
             self._save(ledger)
 
     def _settle(self, attempt_id, status_code, body):
+        with self._locked():
+            embedding = self._load()["attempts"][attempt_id - 1]["model"].startswith("text-embeddings-v2-")
         usage = None
         if 200 <= status_code < 300:
             try:
                 data = json.loads(body)
                 candidate = data.get("usage")
+                if (embedding and isinstance(candidate, dict)
+                        and type(candidate.get("prompt_tokens")) is int and candidate["prompt_tokens"] > 0
+                        and type(candidate.get("total_tokens")) is int
+                        and candidate["total_tokens"] == candidate["prompt_tokens"]
+                        and type(candidate.get("completion_tokens", 0)) is int
+                        and candidate.get("completion_tokens", 0) == 0):
+                    candidate = {**candidate, "completion_tokens": 0}
                 if (isinstance(candidate, dict)
                         and all(type(candidate.get(name)) is int and candidate[name] >= 0
                                 for name in ("prompt_tokens", "completion_tokens", "total_tokens"))
@@ -324,7 +353,8 @@ class BudgetTransport(httpx.AsyncBaseTransport):
     async def _handle_async_request(self, request):
         if (self._closed or request.method != "POST" or request.url.scheme != "https"
                 or request.url.host != "ai.api.cloud.yandex.net"
-                or request.url.path != "/v1/chat/completions" or request.url.query):
+                or request.url.path not in {"/v1/chat/completions", "/v1/embeddings"}
+                or request.url.port not in (None, 443) or request.url.query or request.url.userinfo):
             raise _failure("eval_budget_invalid")
         try:
             body = await request.aread()
@@ -333,7 +363,9 @@ class BudgetTransport(httpx.AsyncBaseTransport):
             payload = json.loads(body)
         except (ValueError, TypeError):
             raise _failure("eval_budget_invalid") from None
-        self._validate_payload(payload)
+        model, _ = self._validate_payload(payload)
+        if model.startswith("text-embeddings-v2-") != (request.url.path == "/v1/embeddings"):
+            raise _failure("eval_budget_invalid")
         with self._locked():
             if self._load()["blocked"]:
                 raise _failure()

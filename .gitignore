@@ -7,9 +7,15 @@ __pycache__/
 .DS_Store
 /docs/development-answers.local.md
 /docs/mvp-architecture.local.md
+/docs/project-evolution.local.md
 /var/
 /presentation/*
 !/presentation/index.html
+!/presentation/plan.md
+!/presentation/speech.md
+!/presentation/case-study.md
+!/presentation/case-study.json
+!/presentation/presentation.test.cjs
 .pytest_cache/
 .ruff_cache/
 /.coverage
