@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT))
 from tools.run_live_eval import pdf_fixture
 
 CHECKS = (
-    "verified_https", "http_redirects_https", "health", "index", "javascript", "stylesheet", "defense_html",
+    "verified_https", "http_redirects_https", "health", "index", "javascript", "stylesheet",
     "mcp_discovery", "session_cookie", "private_cache", "invalid_pdf_rejected", "upload", "source_text",
     "original_pdf", "source_html_page", "foreign_assignment_404", "foreign_source_404", "foreign_pdf_404",
     "manual_confirmation", "plan_deficit_180", "all_completed_zero", "stale_plan_rejected", "cross_origin_rejected",
@@ -101,7 +101,7 @@ def check_hosted(base_url, *, live=False, timeout=30, skip_http_redirect=False, 
             data = json_data(response)
             record("health", http_status(response) == 200 and data.get("status") == "ok", f"HTTP {http_status(response)}; status={data.get('status')}")
             for name, path, marker in (("index", "/", "Project Navigator"), ("javascript", "/static/app.js", "getElementById"),
-                                       ("stylesheet", "/static/styles.css", ":root"), ("defense_html", "/static/defense.html", "slide-8")):
+                                       ("stylesheet", "/static/styles.css", ":root")):
                 response = request(client, "GET", path)
                 record(name, http_status(response) == 200 and marker in response.text if response is not None else False,
                        f"{path}: HTTP {http_status(response)}; expected artifact marker.")

@@ -10,12 +10,8 @@ __pycache__/
 /docs/project-evolution.local.md
 /var/
 /presentation/*
-!/presentation/index.html
-!/presentation/plan.md
 !/presentation/speech.md
-!/presentation/case-study.md
-!/presentation/case-study.json
-!/presentation/presentation.test.cjs
+!/presentation/project-summary.md
 .pytest_cache/
 .ruff_cache/
 /.coverage

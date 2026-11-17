@@ -35,7 +35,7 @@
 | Реализация MVP, чат, UI, AI-ответы, локализация бага | [study-build](.agents/skills/study-build/SKILL.md) |
 | MCP-сервер/клиент, инструменты, ошибки и tool loop | [study-mcp](.agents/skills/study-mcp/SKILL.md) |
 | Eval, проверка источников, регрессии, качество планов | [study-eval](.agents/skills/study-eval/SKILL.md) |
-| Хостинг, воспроизводимый запуск, README и защита | [study-release](.agents/skills/study-release/SKILL.md) |
+| Хостинг, воспроизводимый запуск и README | [study-release](.agents/skills/study-release/SKILL.md) |
 
 Для задачи, затрагивающей несколько областей, подключай соответствующие skills,
 но не запускай полный релизный процесс ради небольшой правки интерфейса.
@@ -57,5 +57,4 @@ python3 -m unittest discover -s tests/skills -v
 ```
 
 Эти две команды проверяют skills и их вспомогательные программы отдельно от
-приложения. Результаты испытаний skills хранятся в
-[docs/skills/validation](docs/skills/validation).
+приложения.

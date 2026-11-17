@@ -1,4 +1,4 @@
 interface:
-  display_name: "StudyNavigator: выпуск и сдача"
-  short_description: "Хостинг, воспроизводимость, README и защита проекта"
-  default_prompt: "Используй $study-release, чтобы подготовить StudyNavigator к сдаче: проверь запуск, хостинг, Eval, README и HTML-презентацию, сохрани доказательства и честно обозначь оставшиеся пробелы."
+  display_name: "Project Navigator: выпуск"
+  short_description: "Хостинг, воспроизводимость и документация проекта"
+  default_prompt: "Используй $study-release для публикации Project Navigator: проверь запуск, хостинг, Eval и README; укажи фактически выполненные проверки."
