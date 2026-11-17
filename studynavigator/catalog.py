@@ -552,6 +552,16 @@ class Store:
             files = [row[0] for row in connection.execute(
                 "SELECT stored_name FROM documents WHERE assignment_id=?", (assignment_id,))]
             with connection:
+                # Older standalone databases may not have the optional Codex tables.
+                for table in ("codex_report_requests", "codex_runs", "codex_connections"):
+                    if not connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+                                              (table,)).fetchone():
+                        continue
+                    if table == "codex_report_requests":
+                        connection.execute("DELETE FROM codex_report_requests WHERE connection_id IN "
+                                           "(SELECT id FROM codex_connections WHERE assignment_id=?)", (assignment_id,))
+                    else:
+                        connection.execute(f"DELETE FROM {table} WHERE assignment_id=?", (assignment_id,))
                 for table in ("progress_history", "assignment_plans", "assignment_briefs", "material_fts", "requirements", "criteria", "sources", "documents"):
                     connection.execute(f"DELETE FROM {table} WHERE assignment_id=?", (assignment_id,))
                 connection.execute("DELETE FROM assignments WHERE assignment_id=? AND workspace_id=?",

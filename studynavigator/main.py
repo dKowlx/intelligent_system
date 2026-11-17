@@ -36,6 +36,8 @@ from .mcp_gateway import GatewayError, MCPGateway
 from .planner import build_plan, prepare_task_overrides, tasks_from_card
 from .providers import ChatCompletionsProvider, OfflineProvider, ProviderError
 from .sessions import BrowserSessionMiddleware
+from .codex_access import CodexAccess, CodexAccessError
+from .codex_routes import create_codex_router
 from .theory_cache import TheoryCache
 from .chats import ChatStore, initialize_chats
 
@@ -295,12 +297,14 @@ def create_app(settings=None, provider=None, analysis_provider=None):
     capacity = asyncio.Semaphore(settings.max_concurrent_requests)
     action_proposals = {}
     knowledge_reader = KnowledgeStore(os.environ.get("STUDYNAV_KNOWLEDGE_DB_PATH"))
+    codex_access = CodexAccess(settings.database_path)
 
     @asynccontextmanager
     async def lifespan(app):
         try:
             seed_database(settings.database_path)
             initialize_chats(settings.database_path)
+            codex_access.initialize()
             async with MCPGateway(settings.database_path, timeout=settings.tool_timeout) as gateway:
                 app.state.mcp_tools = len(gateway.tools)
             yield
@@ -317,11 +321,21 @@ def create_app(settings=None, provider=None, analysis_provider=None):
     app.state.mcp_tools = 0
     app.add_middleware(BodyLimitMiddleware)
     app.add_middleware(BrowserSessionMiddleware)
+    app.include_router(create_codex_router(codex_access))
     app.mount("/static", StaticFiles(directory=PROJECT_ROOT / "web"), name="static")
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
         return error_response("invalid_request", "Проверьте поля запроса и допустимые значения.", 422)
+
+    @app.exception_handler(CodexAccessError)
+    async def codex_error(request, exc):
+        response = error_response(exc.code, exc.message, exc.status_code)
+        if exc.status_code == 401:
+            response.headers["WWW-Authenticate"] = 'Bearer realm="Project Navigator"'
+        if exc.status_code == 429:
+            response.headers["Retry-After"] = "60"
+        return response
 
     @app.exception_handler(StarletteHTTPException)
     async def http_error(request, exc):

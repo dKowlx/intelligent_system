@@ -149,6 +149,7 @@ function updateWorkflow() {
     else button.removeAttribute("aria-current");
   });
   renderViewVisibility();
+  window.NavigatorCodex?.setProject({ id: state.selectedId, ready: Boolean(state.detail) && !state.loading && isUploaded() && !materialOnly(), planDirty: state.planDirty || state.cardDirty || Boolean(state.plan) || Boolean(state.confirmation), card_revision: state.detail?.card_revision, plan_revision: savedPlan?.revision });
 }
 
 function navigateWorkflow(step) {
@@ -963,6 +964,7 @@ function renderTaskEditor() {
     actual.addEventListener("input", () => {
       task.actual_minutes = actual.value === "" ? null : Number(actual.value);
       invalidatePlan(true);
+      updateControls();
     });
     actualLabel.append(actual);
     const details = element("details", "task-detail");
@@ -1977,10 +1979,12 @@ function restoreSavedTasks(plan) {
   return resetNames;
 }
 
-async function loadSavedPlan(selection) {
+async function loadSavedPlan(selection, preserveDrafts = false) {
+  const version = state.planVersion;
   try {
     const data = await requestJSON(`/api/assignments/${encodeURIComponent(state.selectedId)}/plan`, {}, 15000);
     if (selection !== state.selection) return;
+    if (preserveDrafts && (state.planDirty || state.cardDirty || state.plan || state.confirmation || version !== state.planVersion)) return;
     savedPlan = data.plan;
     if (!savedPlan) {
       availability = [];
@@ -2416,6 +2420,13 @@ $("refine-estimates")?.addEventListener("click", () => {
   if ($("refine-estimates").disabled) return;
   navigateWorkflow("chat");
   sendMessage("Переоцени длительность всех действий с учётом объёма, сложности, подготовки, решения и проверки. Используй доступную теорию и мой фактический темп, если он есть. Предложи обоснованные диапазоны времени и более подробные подшаги; сохрани прогресс и зависимости.");
+});
+
+window.addEventListener?.("navigator-codex-accepted", async (event) => {
+  if (event.detail?.id !== state.selectedId || state.planDirty || state.cardDirty || state.plan || state.confirmation) return;
+  const id = state.selectedId, selection = state.selection;
+  await loadSavedPlan(selection, true);
+  if (state.selectedId === id && selection === state.selection) updateControls();
 });
 
 initialize();

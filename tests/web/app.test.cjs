@@ -15,7 +15,7 @@ const card = {
 };
 
 // A small DOM substitute for state-transition tests; browser checks are separate.
-function harness(fetchResponse, { reducedMotion = false, formatter = true, routeMap } = {}) {
+function harness(fetchResponse, { reducedMotion = false, formatter = true, routeMap, codex } = {}) {
   const nodes = new Map();
   const documentListeners = new Map();
   let focused = null;
@@ -58,7 +58,7 @@ function harness(fetchResponse, { reducedMotion = false, formatter = true, route
   });
   const calls = [];
   const context = vm.createContext({
-    document, window: { NavigatorRouteMap: routeMap, location: { origin: "http://localhost" }, matchMedia: () => ({ matches: reducedMotion }) }, URL, AbortController, FormData, TextEncoder, setTimeout, clearTimeout,
+    document, window: { NavigatorCodex: codex, NavigatorRouteMap: routeMap, location: { origin: "http://localhost" }, matchMedia: () => ({ matches: reducedMotion }) }, URL, AbortController, FormData, TextEncoder, setTimeout, clearTimeout,
     fetch: async (url, options = {}) => {
       calls.push({ url, options });
       const result = await fetchResponse(url, options);
@@ -986,4 +986,25 @@ test("restoring the session list blocks early sending until history has loaded",
   await app.sendMessage('Не опережай историю');assert.equal(app.calls.length,1);
   finish({status:200,body:{sessions:[]}});await loading;
   assert.equal(app.state.chatLoading,false);assert.equal(app.get('send-button').disabled,false);
+});
+
+
+test("editing only actual minutes immediately blocks Codex acceptance through dirty context", () => {
+  const contexts = [];
+  const app = harness(unavailable, { codex: { setProject(context) { contexts.push(context); } } });
+  app.state.detail = { ...uploaded, status: "ready", card };
+  app.state.planTasks = [{ id: "a", title: "Первое действие", minutes: 30, actual_minutes: null, depends_on: [] }];
+  app.renderTaskEditor(); app.updateControls();
+  assert.equal(contexts.at(-1).planDirty, false);
+  const row = app.get("plan-tasks").children[0];
+  function findActual(node) {
+    if (node.attributes?.["aria-label"] === "Фактические минуты: Первое действие") return node;
+    return node.children?.map(findActual).find(Boolean);
+  }
+  const actual = findActual(row);
+  actual.value = "17"; actual.listeners.input();
+  assert.equal(app.state.planTasks[0].actual_minutes, 17);
+  assert.equal(app.state.planDirty, true);
+  assert.equal(contexts.at(-1).planDirty, true);
+  assert.equal(app.calls.length, 0);
 });

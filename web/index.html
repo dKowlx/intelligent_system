@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#365de8">
   <meta name="color-scheme" content="light dark">
-  <script src="/static/theme.js?v=20261116-progress-context-v1"></script>
+  <script src="/static/theme.js?v=20261117-codex-v1"></script>
   <title>Project Navigator — работа над проектами</title>
   <meta name="description" content="От сложной задачи к понятным действиям. Требования, доступное время и прогресс проекта в одном рабочем пространстве.">
-  <link rel="stylesheet" href="/static/styles.css?v=20261116-progress-context-v1">
-  <link rel="stylesheet" href="/static/route-map.css?v=20261116-progress-context-v1">
-  <script src="/static/route-map.js?v=20261116-progress-context-v1" defer></script>
-  <script id="text-format" src="/static/text-format.js?v=20261116-progress-context-v1" defer></script>
-  <script src="/static/app.js?v=20261116-progress-context-v1" defer></script>
-  <script src="/static/workspace.js?v=20261116-progress-context-v1" defer></script>
-  <link rel="stylesheet" href="/static/workspace.css?v=20261116-progress-context-v1">
+  <link rel="stylesheet" href="/static/styles.css?v=20261117-codex-v1">
+  <link rel="stylesheet" href="/static/route-map.css?v=20261117-codex-v1">
+  <script src="/static/route-map.js?v=20261117-codex-v1" defer></script>
+  <script id="text-format" src="/static/text-format.js?v=20261117-codex-v1" defer></script>
+  <script src="/static/codex-connection.js?v=20261117-codex-v1" defer></script>
+  <script src="/static/app.js?v=20261117-codex-v1" defer></script>
+  <script src="/static/workspace.js?v=20261117-codex-v1" defer></script>
+  <link rel="stylesheet" href="/static/workspace.css?v=20261117-codex-v1">
 </head>
 <body>
   <a class="skip-link" href="#workspace">Перейти к проекту</a>
@@ -120,6 +121,15 @@
 
           <section id="planning" class="planning-panel panel" role="tabpanel" aria-labelledby="nav-planning">
             <div class="panel-heading"><div><h2 id="plan-title">Действия и план</h2><p id="plan-intro" class="plan-intro">Проверяйте результат, отмечайте готовое и корректируйте оставшееся время.</p></div><span class="context-tag">Ваш рабочий маршрут</span></div>
+            <details id="codex-panel" class="codex-panel" hidden>
+              <summary>Codex <span class="empty-note">— подключение и результаты</span></summary>
+              <p>Разрешите вашему Codex читать материалы и передавать результаты действий только этого проекта. Готовность результата подтверждаете вы.</p>
+              <div class="codex-controls"><label for="codex-label">Название подключения<input id="codex-label" maxlength="80" value="Мой Codex" autocomplete="off"></label><label for="codex-days">Срок доступа, дней<input id="codex-days" type="number" min="1" max="30" value="7" required></label><button id="codex-create" class="button button-secondary" type="button">Создать подключение</button></div>
+              <div id="codex-token-box" hidden><p>Токен показан один раз. Сохраните его в локальном env-файле вне Git. Это доступ к проекту, а не ключ OpenAI или Яндекса.</p><label for="codex-token">Токен подключения<input id="codex-token" type="password" readonly autocomplete="off" spellcheck="false"></label><button id="codex-copy" class="button button-secondary" type="button">Скопировать токен</button><button id="codex-hide-token" class="button button-secondary" type="button">Скрыть и удалить с экрана</button></div>
+              <details><summary>Как подключить</summary><p>Создайте локальный env-файл и задайте NAVIGATOR_URL адресом этого сервиса, NAVIGATOR_TOKEN — выданным токеном. Подключите MCP-сервер по инструкции. Не передавайте токен в чат или команды терминала.</p><a href="https://github.com/dKowlx/intelligent_system/blob/main/docs/codex-connection.md" target="_blank" rel="noopener noreferrer">Инструкция подключения Codex</a></details>
+              <ul id="codex-connections" aria-label="Подключения Codex"></ul>
+              <div class="codex-results-heading"><h3>Результаты действий</h3><button id="codex-refresh" class="button button-secondary" type="button">Обновить</button></div><ul id="codex-runs" aria-label="Результаты Codex"></ul><p id="codex-status" role="status" aria-live="polite"></p>
+            </details>
             <div class="estimate-assist"><button id="refine-estimates" class="button button-secondary" type="button">Уточнить оценки с ИИ</button></div>
             <details id="decomposition" class="decomposition"><summary><span><strong>Декомпозиция проекта</strong><small>Результаты, приоритеты и зависимости действий</small></span><span aria-hidden="true">＋</span></summary><div class="decomposition-body"><p class="empty-note">Каждое действие ведёт к проверяемому результату. Приоритет определяет порядок среди доступных действий; зависимости сохраняются.</p><div id="card-actions-editor"></div><div class="decomposition-actions"><button id="regroup-actions" class="button button-secondary" type="button">Собрать 5 действий</button><button id="add-card-action" class="button button-secondary" type="button">+ Добавить действие</button><button id="save-actions" class="button button-primary" type="button">Сохранить действия</button><button id="discard-actions" class="text-button" type="button" hidden>Отменить правки</button></div><p id="actions-status" role="status"></p></div></details>
             <form id="plan-form" class="plan-form">

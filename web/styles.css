@@ -680,3 +680,15 @@ textarea { resize: vertical; }
 .daily-overrides { margin: 14px 0; }
 .daily-overrides > summary { cursor: pointer; padding: 10px 0; }
 .daily-overrides > p { color: var(--muted); }
+
+.codex-panel { margin: 1rem 0; padding: 1rem; border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.codex-panel summary { cursor: pointer; font-weight: 600; }
+.codex-panel p, .codex-panel li { overflow-wrap: anywhere; }
+.codex-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; }
+.codex-controls label { flex: 1 1 150px; min-width: 0; }
+.codex-panel label { display: grid; gap: .35rem; }
+.codex-panel input { width: 100%; min-width: 0; box-sizing: border-box; }
+.codex-panel ul { padding-left: 1.25rem; }
+.codex-panel li { margin-block: .75rem; }
+.codex-panel button { margin: .25rem; }
+.codex-results-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
