@@ -1,0 +1,299 @@
+{
+  "reference_id": "personal-project-pdf-independent-20261116",
+  "created_before_app_output_review": true,
+  "notice": "Ручной эталон и критерии рецензента; не ответ модели. Дата создания до просмотра — свойство архивного эталона, не независимая внешняя аттестация.",
+  "source": {
+    "filename": "Личный проект.pdf",
+    "sha256": "deaa77f98566f723cbf30f7dbd0aac05d2a0f524cb468c1edf254213e0b6a722",
+    "pages": 3
+  },
+  "deadline": null,
+  "exact_deliverables": [
+    "Работающая интеллектуальная система с подключенной LLM, MCP и интерфейсом",
+    "Развёрнутый сервис, доступный по ссылке",
+    "Единый README.md с девятью разделами в публичном репозитории",
+    "Интерактивная HTML-презентация в публичном репозитории",
+    "Eval и разбор ошибок в README",
+    "Две ссылки, отправленные в LMS"
+  ],
+  "requirements": [
+    {
+      "id": "PDF-01",
+      "page": 1,
+      "title": "Работающая интеллектуальная система",
+      "evidence": "Реализовать систему: MCP-интеграция, AI-логика (подключенная LLM), WEB/TG/MAX/etc-интерфейс.",
+      "completion_criterion": "Пользователь проходит полезный сценарий через интерфейс; реальная LLM подключена, MCP участвует в получении данных.",
+      "suggested_action_id": "A2",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "PDF-02",
+      "page": 1,
+      "title": "Публичный репозиторий",
+      "evidence": "Создать публичный репозиторий на GitHub, GitVerse, SourceCraft или прочих публичных хранилищах кода.",
+      "completion_criterion": "Репозиторий доступен без авторизации, содержит проект, README.md и интерактивную HTML-презентацию.",
+      "suggested_action_id": "A5",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "PDF-03",
+      "page": 1,
+      "title": "Подключенная LLM",
+      "evidence": "AI-логика (подключенная LLM)",
+      "completion_criterion": "Выполнен запрос к настроенной реальной модели; сохранены результат и конфигурация без секретов. Offline/mock отдельно.",
+      "suggested_action_id": "A2",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "PDF-04",
+      "page": 2,
+      "title": "Собственный MCP-сервер и стабильная интеграция",
+      "evidence": "MCP-сервер реализован, интеграция работает стабильно, схема MCP описана в README.",
+      "completion_criterion": "Настоящий клиент обнаруживает инструменты и вызывает сервер; проверены успешный и ошибочный пути; схема внесена в README.",
+      "suggested_action_id": "A2",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "PDF-05",
+      "page": 1,
+      "title": "Пользовательский интерфейс",
+      "evidence": "WEB/TG/MAX/etc-интерфейс",
+      "completion_criterion": "Выбранный интерфейс открывается и позволяет выполнить основной сценарий.",
+      "suggested_action_id": "A2",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "PDF-06",
+      "page": 1,
+      "title": "Развёрнутый сервис",
+      "evidence": "Развернуть сервис на хостинге.",
+      "completion_criterion": "Рабочий пользовательский сценарий доступен по публичной ссылке; локальный запуск не заменяет хостинг.",
+      "suggested_action_id": "A4",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "PDF-07",
+      "page": 2,
+      "title": "Доступность и стабильность сервиса",
+      "evidence": "сервис развёрнут на хостинге, доступен по ссылке, работает стабильно.",
+      "completion_criterion": "Проверены публичный URL и основной сценарий, сохранены дата и результат; один health-check не доказывает весь сценарий.",
+      "suggested_action_id": "A4",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "PDF-08",
+      "page": 1,
+      "title": "Eval и разбор ошибок",
+      "evidence": "Провести Eval и оформить разбор ошибок в README.",
+      "completion_criterion": "Есть набор случаев, критерии, реальные результаты, обнаруженные ошибки и разбор в README.",
+      "suggested_action_id": "A3",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "PDF-09",
+      "page": 1,
+      "title": "Интерактивная HTML-презентация",
+      "evidence": "Подготовить интерактивную HTML презентацию для защиты проекта до 10 минут.",
+      "completion_criterion": "HTML открывается, управление работает; репетиция укладывается в 10 минут. Пользовательский лимит 8 минут строже PDF.",
+      "suggested_action_id": "A5",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "PDF-10",
+      "page": 1,
+      "title": "Сдача двух ссылок в LMS",
+      "evidence": "Ссылку на публичный репозиторий с интерактивной HTML презентацией и README.md. Ссылку на работающий сервис WEB/TG/MAX/etc-интерфейс.",
+      "completion_criterion": "В LMS отправлены две проверенные ссылки: репозиторий и работающий сервис; факт отправки подтверждается отдельно.",
+      "suggested_action_id": "A5",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "README-01",
+      "page": 1,
+      "title": "Название и задача",
+      "evidence": "Название проекта и описание задачи.",
+      "completion_criterion": "README называет проект и конкретную решаемую проблему.",
+      "suggested_action_id": "A1",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "README-02",
+      "page": 1,
+      "title": "Пользователь и сценарий",
+      "evidence": "Пользователь и сценарий использования.",
+      "completion_criterion": "README описывает пользователя, исходную ситуацию, действия и полезный исход.",
+      "suggested_action_id": "A1",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "README-03",
+      "page": 1,
+      "title": "Границы MVP",
+      "evidence": "Границы MVP.",
+      "completion_criterion": "README явно ограничивает первую версию.",
+      "suggested_action_id": "A1",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "README-04",
+      "page": 1,
+      "title": "Архитектурная схема",
+      "evidence": "Архитектурная схема системы.",
+      "completion_criterion": "В README есть читаемая схема компонентов и их взаимодействия.",
+      "suggested_action_id": "A2",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "README-05",
+      "page": 1,
+      "title": "Схема MCP",
+      "evidence": "Схема MCP-интеграции.",
+      "completion_criterion": "README показывает клиент, сервер, инструменты и путь данных.",
+      "suggested_action_id": "A2",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "README-06",
+      "page": 1,
+      "title": "AI-логика",
+      "evidence": "Описание AI-логики (модель или агент).",
+      "completion_criterion": "README называет модель/агента и объясняет входы, вызовы, источники, выходы и ограничения.",
+      "suggested_action_id": "A2",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "README-07",
+      "page": 1,
+      "title": "Запуск и развёртывание",
+      "evidence": "Инструкция по запуску и развёртыванию.",
+      "completion_criterion": "Другой человек может воспроизвести запуск и размещение по README; переменные указаны без ключей.",
+      "suggested_action_id": "A4",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "README-08",
+      "page": 1,
+      "title": "Результаты Eval и ошибки",
+      "evidence": "Результаты Eval и разбор ошибок.",
+      "completion_criterion": "README содержит результаты Eval и содержательный разбор неудач.",
+      "suggested_action_id": "A3",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "README-09",
+      "page": 1,
+      "title": "Источники",
+      "evidence": "Список использованных источников.",
+      "completion_criterion": "README перечисляет реально использованные источники.",
+      "suggested_action_id": "A5",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "RUBRIC-01",
+      "page": 2,
+      "title": "Критерии готовности и согласование задачи",
+      "evidence": "дополнительно определены границы MVP, сформулированы критерии готовности, задача согласована с преподавателями.",
+      "completion_criterion": "Записаны критерии готовности и границы; есть отдельное подтверждение согласования преподавателем. План не доказывает согласование.",
+      "suggested_action_id": "A1",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "RUBRIC-02",
+      "page": 2,
+      "title": "Полная воспроизводимость",
+      "evidence": "README позволяет полностью воспроизвести проект.",
+      "completion_criterion": "Проверен запуск по инструкции в чистом окружении; результаты и ограничения записаны.",
+      "suggested_action_id": "A4",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    },
+    {
+      "id": "RUBRIC-03",
+      "page": 2,
+      "title": "Демонстрация и аргументированные ответы",
+      "evidence": "демонстрация работает, ответы на вопросы полные и аргументированные.",
+      "completion_criterion": "На защите показан работающий сценарий; подготовлены проверяемые ответы о пользе, архитектуре, MCP, Eval и ограничениях.",
+      "suggested_action_id": "A5",
+      "origin": "PDF requirement; completion criterion operationalized by reviewer"
+    }
+  ],
+  "rubric": [
+    {
+      "category": "Задача и границы",
+      "page": 2,
+      "max_points": 10,
+      "levels": {
+        "0": "Задача отсутствует или не соответствует критериям",
+        "5": "Задача сформулирована; определены пользователь и сценарий",
+        "10": "Также определены границы MVP, критерии готовности; задача согласована с преподавателями"
+      }
+    },
+    {
+      "category": "MCP-интеграция",
+      "page": 2,
+      "max_points": 10,
+      "levels": {
+        "0": "MCP отсутствует",
+        "5": "Сервер реализован, интеграция частичная/нестабильная",
+        "10": "Сервер реализован, интеграция стабильна, схема в README"
+      }
+    },
+    {
+      "category": "Сервис и хостинг",
+      "page": 2,
+      "max_points": 10,
+      "levels": {
+        "0": "Только локальный запуск, нет размещения",
+        "5": "Размещён, но нестабилен или недоступен по ссылке",
+        "10": "Размещён, доступен по ссылке, стабилен"
+      }
+    },
+    {
+      "category": "Качество и воспроизводимость",
+      "page": 2,
+      "max_points": 10,
+      "levels": {
+        "0": "Нет Eval; README не позволяет воспроизвести проект",
+        "5": "Eval проведён; инструкция есть, но с пробелами",
+        "10": "Eval проведён, ошибки разобраны, README позволяет полностью воспроизвести проект"
+      }
+    },
+    {
+      "category": "Демо и ответы",
+      "page": 2,
+      "max_points": 10,
+      "levels": {
+        "0": "Демо отсутствует/не работает",
+        "5": "Демо проведено, есть проблемы работы или ответов",
+        "10": "Демо работает; ответы полные и аргументированные"
+      }
+    }
+  ],
+  "rubric_max_points": 50,
+  "sources_sent_to_live_model": [
+    {
+      "source_id": "S1",
+      "page": 1,
+      "excerpt": "Рубежный контроль, на котором преподаватель оценивает ваш личный проект: работающую интеллектуальную систему, оформленную в виде интерактивной презентации HTML и README.md в публичном репозитории. Оценивание проводится по критериям ниже. Что надо сделать ● Создать публичный репозиторий на GitHub, GitVerse, SourceCraft или прочих публичных хранилищах кода. ● Подготовить README по структуре (см. ниже). ● Реализовать систему: MCP- интеграция, AI- логика (подключенная LLM), WEB/TG/MAX/etc- интерфейс. ● Развернуть сервис на хостинге. ● Провести Eval и оформить разбор ошибок в README. ● Подготовить интерактивную HTML презентацию для защиты проекта до 10 минут. Порядок сдачи и формат предоставления материалов Загрузить в LMS: ● Ссылку на публичный репозиторий с интерактивной HTML презентацией и README.md. ● Ссылку на работающий сервис WEB/TG/MAX/etc- интерфейс. Важно: результатом работы является единый файл README.md в публичном репозитории, а также развёрнутый сервис, доступный по ссылке. Примерная структура README README должен включать: ● Название проекта и описание задачи. ● Пользователь и сценарий использования. ● Границы MVP. ● Архитектурная схема системы. ● Схема MCP- интеграции."
+    },
+    {
+      "source_id": "S2",
+      "page": 1,
+      "excerpt": "● Описание AI- логики (модель или агент). ● Инструкция по запуску и развёртыванию. ● Результаты Eval и разбор ошибок. ● Список использованных источников. Формат защиты"
+    },
+    {
+      "source_id": "S3",
+      "page": 2,
+      "excerpt": "Защита проходит в синхронном формате: студент представляет интерактивную HTML презентацию (до 10 минут), демонстрирует работающий сервис и отвечает на вопросы преподавателя и группы. Критерии оценивания (максимум 50 баллов) Задача и границы — 10 баллов ● 0 — задача не сформулирована или не соответствует критериям. ● 5 — задача сформулирована, определены пользователь и сценарий использования. ● 10 — дополнительно определены границы MVP, сформулированы критерии готовности, задача согласована с преподавателями. MCP- интеграция — 10 баллов ● 0 — MCP отсутствует. ● 5 — MCP- сервер реализован, но интеграция частичная или нестабильная. ● 10 — MCP- сервер реализован, интеграция работает стабильно, схема MCP описана в README. Сервис и хостинг — 10 баллов ● 0 — сервис не развёрнут, работает только локально. ● 5 — сервис развёрнут, но работает нестабильно или недоступен по ссылке. ● 10 — сервис развёрнут на хостинге, доступен по ссылке, работает стабильно. Качество и воспроизводимость — 10 баллов ● 0 — Eval отсутствует, README не позволяет воспроизвести проект. ● 5 — Eval проведён, README содержит инструкцию по запуску, но есть пробелы. ● 10 — Eval проведён, разбор ошибок оформлен, README"
+    },
+    {
+      "source_id": "S4",
+      "page": 2,
+      "excerpt": "позволяет полностью воспроизвести проект. Демо и ответы — 10 баллов ● 0 — демонстрация отсутствует или не работает. ● 5 — демонстрация проведена, но есть проблемы с работоспособностью или ответами на вопросы. ● 10 — демонстрация работает, ответы на вопросы полные и аргументированные."
+    },
+    {
+      "source_id": "S5",
+      "page": 3,
+      "excerpt": "Итого: максимум 50 баллов."
+    }
+  ]
+}

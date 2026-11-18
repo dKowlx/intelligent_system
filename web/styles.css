@@ -173,6 +173,7 @@ section[id], h2[id] { scroll-margin-top: 78px; }
 .workspace-grid[data-view="chat"] { grid-template-columns: minmax(0, 1fr) 290px; }
 .workspace-grid[data-view="overview"] { display: none; }
 .page-footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 26px 0; color: var(--muted); font-size: 10px; }
+.page-footer a { color: var(--accent-text); font-size: .85rem; text-underline-offset: .18em; }
 
 /* Shared form language. */
 .panel { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }

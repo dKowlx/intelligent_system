@@ -1,0 +1,201 @@
+{
+  "evidence_id": "personal-project-review-v1",
+  "review_date": "2026-11-18",
+  "method": "Содержательное сопоставление сохранённого ответа с PDF-эталоном; арифметика пересчитана без модели. Рубрика применена ретроспективно.",
+  "evaluated_output": "live-20261116",
+  "task_arithmetic": [
+    {
+      "id": "t1",
+      "minutes": 120,
+      "substep_sum": 120,
+      "min_minutes": 80,
+      "max_minutes": 180,
+      "depends_on": []
+    },
+    {
+      "id": "t2",
+      "minutes": 300,
+      "substep_sum": 300,
+      "min_minutes": 200,
+      "max_minutes": 450,
+      "depends_on": [
+        "t1"
+      ]
+    },
+    {
+      "id": "t3",
+      "minutes": 240,
+      "substep_sum": 240,
+      "min_minutes": 160,
+      "max_minutes": 340,
+      "depends_on": [
+        "t2"
+      ]
+    },
+    {
+      "id": "t4",
+      "minutes": 210,
+      "substep_sum": 210,
+      "min_minutes": 150,
+      "max_minutes": 300,
+      "depends_on": [
+        "t3",
+        "t1"
+      ]
+    },
+    {
+      "id": "t5",
+      "minutes": 150,
+      "substep_sum": 150,
+      "min_minutes": 100,
+      "max_minutes": 220,
+      "depends_on": [
+        "t4",
+        "t3"
+      ]
+    }
+  ],
+  "total_minutes": 1020,
+  "sum_min_minutes": 690,
+  "sum_max_minutes": 1490,
+  "substep_count": 20,
+  "component_lower_bound_conflicts": [
+    {
+      "task_id": "t1",
+      "declared_min": 80,
+      "sum_component_min": 100
+    },
+    {
+      "task_id": "t2",
+      "declared_min": 200,
+      "sum_component_min": 260
+    },
+    {
+      "task_id": "t3",
+      "declared_min": 160,
+      "sum_component_min": 170
+    },
+    {
+      "task_id": "t4",
+      "declared_min": 150,
+      "sum_component_min": 160
+    },
+    {
+      "task_id": "t5",
+      "declared_min": 100,
+      "sum_component_min": 125
+    }
+  ],
+  "findings": [
+    {
+      "criterion": "requirements_coverage",
+      "result": "partial",
+      "evidence": "Требуемые результаты упомянуты; публикация репозитория не выделена действием, архитектура и источники спрятаны в t4s4."
+    },
+    {
+      "criterion": "source_support",
+      "result": "fail",
+      "evidence": "req-3 ссылается только на S2, который требует описание AI-логики. Подключённую LLM подтверждает S1."
+    },
+    {
+      "criterion": "rubric_accuracy",
+      "result": "fail",
+      "evidence": "priority_reason t2 ошибочно называет AI-логику отдельным критерием. В PDF пять категорий, отдельной AI нет."
+    },
+    {
+      "criterion": "unknown_deadline",
+      "result": "pass",
+      "evidence": "deadline.date=null, origin=unknown; календарного срока в трёх страницах PDF нет."
+    },
+    {
+      "criterion": "action_verifiability",
+      "result": "partial",
+      "evidence": "Есть результаты, done_when и 20 подшагов; t2 не задаёт негативные проверки, t4 не выделяет чистое воспроизведение."
+    },
+    {
+      "criterion": "time_consistency",
+      "result": "partial",
+      "evidence": "Все суммы подшагов совпадают с minutes; нижние границы пяти задач ниже сумм компонентных нижних оценок в estimate_basis."
+    },
+    {
+      "criterion": "scope_and_dependencies",
+      "result": "partial",
+      "evidence": "Предметная цепочка t1→t2→t3→t4→t5 без циклов; обязательное ожидание полного README перед подготовкой всей презентации чрезмерно."
+    }
+  ],
+  "score": null,
+  "score_reason": "Один подтверждённый live-анализ, ретроспективная оценка; проценты качества и оценка преподавателя не вычисляются.",
+  "saved_20261117_plan_summary": {
+    "notice": "Сохранённый расчёт приложения, не LLM-расписание и не новое исполнение planner.",
+    "required_minutes": 1470,
+    "available_minutes": 1680,
+    "deficit_minutes": 0,
+    "status": "feasible",
+    "task_minutes": [
+      150,
+      420,
+      360,
+      330,
+      210
+    ],
+    "availability": [
+      {
+        "day": 1,
+        "minutes": 150
+      },
+      {
+        "day": 2,
+        "minutes": 150
+      },
+      {
+        "day": 3,
+        "minutes": 150
+      },
+      {
+        "day": 4,
+        "minutes": 150
+      },
+      {
+        "day": 5,
+        "minutes": 150
+      },
+      {
+        "day": 6,
+        "minutes": 150
+      },
+      {
+        "day": 7,
+        "minutes": 150
+      },
+      {
+        "day": 8,
+        "minutes": 150
+      },
+      {
+        "day": 9,
+        "minutes": 150
+      },
+      {
+        "day": 10,
+        "minutes": 150
+      },
+      {
+        "day": 11,
+        "minutes": 150
+      },
+      {
+        "day": 12,
+        "minutes": 150
+      },
+      {
+        "day": 13,
+        "minutes": 150
+      },
+      {
+        "day": 14,
+        "minutes": 150
+      }
+    ],
+    "reserve_percent": 20
+  }
+}

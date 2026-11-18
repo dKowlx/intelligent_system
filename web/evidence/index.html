@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Разбор плана и работа с Codex · Project Navigator</title>
+  <script src="../theme.js"></script>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    body { display: block; margin: 0; background: var(--canvas); color: var(--ink); }
+    main { width: min(56rem, calc(100% - 2.5rem)); margin: 0 auto; padding: 2rem 0 3rem; }
+    h1 { font-size: clamp(2rem, 5.8vw, 3.8rem); max-width: 19ch; line-height: 1.06; margin: 0.65em 0; letter-spacing: -.035em; }
+    h2 { font-size: clamp(1.3rem, 3vw, 1.65rem); line-height: 1.25; margin: 0 0 .5rem; }
+    a { color: var(--accent-text); text-underline-offset: .18em; }
+    section { padding: clamp(1rem, 3vw, 1.8rem); margin: 1rem 0; background: var(--surface); border: 1px solid var(--line); border-radius: 1rem; }
+    p, li { max-width: 78ch; line-height: 1.55; }
+    video { display: block; width: 100%; height: auto; aspect-ratio: 1440/1000; background: #101722; border-radius: .5rem; }
+    ul { padding-left: 1.4rem; }
+    li + li { margin-top: .3rem; }
+    details { padding-block: .7rem; border-block: 1px solid var(--line); margin-block: 1rem; }
+    summary { cursor: pointer; font-weight: 600; }
+    dt { font-weight: 600; }
+    dd { margin: .2rem 0 1rem; color: var(--text-secondary); }
+    section > :last-child { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <a href="/">← Project Navigator</a>
+    <h1>Разбор плана и работа с Codex</h1>
+    <section id="video" aria-labelledby="video-heading">
+      <h2 id="video-heading">От задачи до принятого результата</h2>
+      <p>Codex CLI берёт задачу через MCP, создаёт файл <code>checklist.md</code> и проверяет через Python, что в нём три пункта. Пока отчёт ожидает проверки, задача открыта. Владелец читает отчёт и нажимает «Принять результат».</p>
+      <video controls playsinline preload="metadata" aria-label="Запись выполнения задачи и принятия отчёта">
+        <source src="codex-review.mp4" type="video/mp4">
+        <a href="codex-review.mp4">Смотреть MP4</a>
+      </video>
+      <p><a href="codex-review.mp4" download>Скачать запись</a> · 37 секунд, с титрами. Ожидание начала работы сокращено.</p>
+    </section>
+    <section id="quality" aria-labelledby="quality-heading">
+      <h2 id="quality-heading">Как модель разобрала «Личный проект.pdf»</h2>
+      <p>В ответе 16 ноября модель разложила работу на пять действий и 20 подшагов. Проверка выявила в том числе неверную ссылку на источник и расхождение в оценке времени на MCP: минимум в описании составил 260 минут, а в поле оценки — 200.</p>
+      <p>Для карточки 17 ноября проверили и расписание. При 14 днях по 150 минут и резерве 20% доступно 1680 минут. Центральная оценка работы оставляет 210 свободных минут, а при верхней оценке не хватает 720 минут.</p>
+      <details id="criteria" hidden>
+        <summary>Посмотреть результаты по каждому критерию</summary>
+        <dl id="findings"></dl>
+      </details>
+      <p><a href="https://github.com/dKowlx/intelligent_system/blob/main/web/evidence/plan-quality.md">Прочитать разбор по семи критериям</a></p>
+      <ul>
+        <li><a href="https://github.com/dKowlx/intelligent_system/blob/main/Личный%20проект.pdf">Исходное задание (PDF в репозитории)</a></li>
+        <li><a href="plan-model-outputs.json">Текст ответа модели и сохранённая карточка (JSON)</a></li>
+        <li><a href="plan-source-reference.json">Фрагменты PDF и ожидаемые требования (JSON)</a></li>
+        <li><a href="plan-quality-checks.json">Результаты сверки и расчёты по действиям (JSON)</a></li>
+        <li><a href="plan-quality.md" download>Скачать полный разбор (Markdown)</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const criteria = {
+      requirements_coverage: 'Полнота требований', source_support: 'Подтверждение источником',
+      rubric_accuracy: 'Точность рубрики', unknown_deadline: 'Неизвестный срок',
+      action_verifiability: 'Проверяемость действий', time_consistency: 'Обоснованность времени',
+      scope_and_dependencies: 'Границы и зависимости'
+    };
+    const verdicts = {pass: 'подтверждено', partial: 'частично подтверждено', fail: 'обнаружена ошибка'};
+    async function showFindings() {
+      const response = await fetch('plan-quality-checks.json');
+      if (!response.ok) return;
+      const {findings} = await response.json();
+      const list = document.getElementById('findings');
+      for (const finding of findings) {
+        const title = document.createElement('dt');
+        const detail = document.createElement('dd');
+        title.textContent = (criteria[finding.criterion] || finding.criterion) + ' — ' + verdicts[finding.result];
+        detail.textContent = finding.evidence;
+        list.append(title, detail);
+      }
+      document.getElementById('criteria').hidden = findings.length === 0;
+    }
+    showFindings().catch(() => {}); // Links to the full review also work without JavaScript.
+  </script>
+</body>
+</html>
