@@ -20,6 +20,7 @@ def setup(tmp_path):
     tasks=[{'id':'first','title':'Prepare result','minutes':30,'completed':False},
            {'id':'second','title':'Verify result','minutes':20,'completed':False,'depends_on':['first']}]
     card=manual_card('Project')
+    card.update(goal={'text':'Prepare a checked result'}, deliverable={'text':'Two verified sections'})
     card['tasks']=tasks
     with sqlite3.connect(path) as db:
         db.execute("UPDATE assignments SET card_json=?,card_revision=1,status='ready' WHERE assignment_id=?",(json.dumps(card),assignment))
@@ -175,7 +176,7 @@ def test_failed_plan_rebuild_rolls_back_acceptance(setup, monkeypatch):
     access.report_task(ctx,run['id'],'awaiting_review','Done',[],'report')
     def fail(*args,**kwargs):
         raise ValueError('planner failed')
-    monkeypatch.setattr('studynavigator.codex_access.build_adaptive_plan',fail)
+    monkeypatch.setattr('studynavigator.codex_plan.build_adaptive_plan',fail)
     with pytest.raises(ValueError,match='planner failed'):
         access.accept_run('owner',project,run['id'],1,1)
     assert access.list_runs('owner',project)[0]['status']=='awaiting_review'
@@ -228,3 +229,94 @@ def test_project_projection_has_tasks_once_and_bounded_recent_runs(setup):
     assert without_plan['plan'] is None
     assert len(without_plan['assignment']['card']['tasks'])==2
     assert access.get_project(access.authenticate(foreign['token']))['runs']==[]
+
+
+def test_legacy_key_keeps_review_rights_after_upgrade(setup):
+    path, _, project, access, connection, ctx = setup
+    access = CodexAccess(path)
+    access.initialize()
+    assert access.get_project(ctx)['connection']['scopes'] == ['read', 'reports']
+    record = dict(card_revision=1, plan_revision=1, task_id='first', action='record',
+                  request_id='old', summary='User supplied total', time={'source':'user','minutes':200})
+    error('permission_denied', access.mutate, ctx, 'progress', record)
+    key = access.create_connection('owner',project,'Read only',scopes=['read'])
+    readonly = access.authenticate(key['token'])
+    error('permission_denied', access.claim_task, readonly, 'first',1,1,'attempt')
+    access.revoke_connection('owner', project, connection['connection']['id'])
+    assert access.get_project(readonly)['plan']['revision'] == 1
+
+
+def test_partial_reports_remain_open_and_require_current_report_version(setup):
+    _, _, project, access, _, legacy = setup
+    ctx = access.authenticate(access.create_connection('owner',project,'Review',
+        scopes=['read','reports','progress'])['token'])
+    run = access.claim_task(ctx, 'first', 1, 1, 'claim')
+    partial = access.report_task(ctx,run['id'],'partial','Draft exists',['draft.txt'],'p')
+    error('task_claimed', access.claim_task, legacy, 'first',1,1,'occupied')
+    error('stale_report', access.report_task,ctx,run['id'],'blocked','Missing input',[],'old',run['updated_at'])
+    error('stale_report', access.report_task,ctx,run['id'],'blocked','Missing input',[],'old')
+    blocked = access.report_task(ctx,run['id'],'blocked','Missing input',[],'b',partial['updated_at'])
+    record = dict(card_revision=1, plan_revision=1, task_id='first', action='record',
+                  request_id='fact', summary='User total', time={'source':'user','minutes':200})
+    assert access.mutate(ctx,'progress',record)['plan_revision'] == 2
+    error('review_required', access.mutate,ctx,'progress',{**record,'action':'complete','request_id':'done'})
+    report = access.report_task(ctx,run['id'],'awaiting_review','Validated',['test passed'],'ready',blocked['updated_at'])
+    assert not access.get_project(ctx)['plan']['input']['tasks'][0]['completed']
+    accepted = access.accept_run('owner',project,run['id'],1,report['plan_revision'])
+    assert accepted['plan']['input']['tasks'][0]['actual_minutes'] == 200
+    assert accepted['plan']['input']['tasks'][0]['completed']
+
+
+def test_expired_partial_claim_released_to_new_key(setup):
+    path, _, project, access, _, ctx = setup
+    worker = access.authenticate(access.create_connection('owner', project, 'Worker',
+        scopes=['read','reports'])['token'])
+    original = access.claim_task(worker,'first',1,1,'start')
+    access.report_task(worker,original['id'],'partial','Work saved',[],'partial')
+    with sqlite3.connect(path) as db:
+        db.execute("UPDATE codex_connections SET expires_at='2000-01-01' WHERE id=?", (worker['connection_id'],))
+    assert access.claim_task(ctx,'first',1,1,'replacement')['status'] == 'in_progress'
+    assert access.list_runs('owner',project)[1]['status'] == 'dismissed'
+
+
+def test_sibling_claims_and_concurrent_updates(setup):
+    _, _, project, access, _, _ = setup
+    def grant(label):
+        issued = access.create_connection('owner',project,label,scopes=['read','reports','plan','progress'])
+        return access.authenticate(issued['token'])
+    writer, coworker = grant('A'), grant('B')
+    steps = [{'id': key, 'title': title, 'minutes': 15, 'done_when':'Result checked'}
+             for key, title in [('a','Draft first section'),('b','Draft second section')]]
+    edit = dict(card_revision=1, plan_revision=1, request_id='create-steps', reason='Divide sections',
+                changes={'tasks':[{'id':'first','substeps':steps}]})
+    revisions = access.mutate(writer,'plan',edit)
+    card, plan = revisions['card_revision'], revisions['plan_revision']
+    access.claim_task(writer,'first',card,plan,'claim-a','a')
+    access.claim_task(coworker,'first',card,plan,'claim-b','b')
+    error('task_claimed',access.claim_task,writer,'first',card,plan,'whole')
+    command = dict(action='record',task_id='first',substep_id='a',card_revision=card,plan_revision=plan,
+                   summary='User input',time={'source':'user','minutes':200},request_id='total')
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first, replay = pool.map(lambda _: access.mutate(writer,'progress',command),range(2))
+    assert first == replay and first['plan_revision'] == plan+1
+    error('stale_plan',access.mutate,coworker,'progress',{**command,'substep_id':'b','request_id':'other'})
+    assert access.get_project(writer)['plan']['analytics']['recorded_actual_minutes'] == 200
+    assert sum(e['operation']=='record' for e in access.activity('owner',project,True)['audit']) == 1
+
+
+def test_measured_request_replays_after_bridge_loses_local_clock(setup):
+    _, _, project, access, _, _ = setup
+    issued = access.create_connection('owner',project,'Stopwatch',scopes=['read','progress'])
+    ctx = access.authenticate(issued['token'])
+    command = dict(card_revision=1, plan_revision=1, task_id='first', action='start',
+                   summary='Editing', request_id='start')
+    access.mutate(ctx,'progress',command)
+    pause = {**command,'plan_revision':2,'action':'pause','request_id':'pause'}
+    measured = {'source':'measured','measurement':'bridge_timer','minutes':0,'basis':'Active interval'}
+    result = access.mutate(ctx,'progress',{**pause,'time':measured})
+    headers = {}
+    assert access.mutate(ctx,'progress',pause,response_headers=headers) == result
+    assert headers == {'Navigator-Replayed':'1'}
+    error('request_conflict',access.mutate,ctx,'progress',{**pause,'time':{'source':'user','minutes':200}})
+    access.revoke_connection('owner',project,issued['connection']['id'])
+    error('invalid_token',access.mutate,ctx,'progress',pause)

@@ -3,6 +3,62 @@
 import re
 from datetime import date, timedelta
 
+PROGRESS_FIELDS = {"progress_status", "work_state", "measured_minutes", "estimated_actual_minutes", "progress_summary", "progress_evidence", "progress_updated_at", "actual_source"}
+
+
+def preserve_progress(tasks, previous):
+    """Keep richer progress from the persisted plan across browser round trips."""
+    old = {task["id"]: task for task in previous or []}
+    new_ids = {task["id"] for task in tasks}
+    def has_progress(item):
+        return (item.get("completed") or item.get("actual_minutes") is not None or item.get("measured_minutes")
+                or item.get("estimated_actual_minutes") is not None or item.get("progress_status", "pending") != "pending"
+                or item.get("progress_summary") or item.get("progress_evidence") or item.get("progress_updated_at"))
+    for identifier, task in old.items():
+        if identifier not in new_ids and (has_progress(task) or any(has_progress(step) for step in task.get("substeps", []))):
+            raise ValueError("cannot remove work with progress")
+    result = []
+    for task in tasks:
+        previous_task = old.get(task["id"], {})
+        merged = {**{key: value for key, value in previous_task.items() if key in PROGRESS_FIELDS}, **task}
+        old_steps = {step["id"]: step for step in previous_task.get("substeps", [])}
+        ids = {step["id"] for step in task.get("substeps", [])}
+        if previous_task.get("completed") and task.get("completed", previous_task.get("completed")) and ids - set(old_steps):
+            raise ValueError("reopen completed task before adding unfinished substeps")
+        if any(has_progress(step) for key, step in old_steps.items() if key not in ids):
+            raise ValueError("cannot remove substep with progress")
+        merged["substeps"] = [{**step, **{key: value for key, value in old_steps.get(step["id"], {}).items()
+            if key in PROGRESS_FIELDS | {"completed", "actual_minutes"}}} for step in task.get("substeps", [])]
+        result.append(merged)
+    return result
+
+
+def reconcile_user_progress(tasks, previous):
+    """Apply explicit browser/chat progress edits without discarding richer facts."""
+    tasks = preserve_progress(tasks, previous)
+    old = {task["id"]: task for task in previous or []}
+    for task in tasks:
+        original = old.get(task["id"], {})
+        if task.get("actual_minutes") != original.get("actual_minutes"):
+            task["actual_source"] = "user" if task.get("actual_minutes") is not None else "unknown"
+        if task.get("completed", False) != original.get("completed", False):
+            task.update(progress_status="completed" if task.get("completed") else "pending", work_state="stopped")
+            if task.get("completed"):
+                for step in task.get("substeps", []):
+                    step.update(completed=True, progress_status="completed", work_state="stopped")
+    return tasks
+
+
+def protect_reported_steps(db, assignment_id, tasks):
+    """Reports remain recorded work even when no minutes were supplied."""
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='codex_runs'").fetchone():
+        return
+    ids = {(task['id'], step['id']) for task in tasks for step in task.get('substeps', [])}
+    for task_id, step_id in db.execute("SELECT task_id,substep_id FROM codex_runs WHERE assignment_id=? AND substep_id IS NOT NULL AND (summary!='' OR evidence!='[]')", (assignment_id,)):
+        if (task_id, step_id) not in ids:
+            raise ValueError("cannot remove a reported substep")
+
+
 DEFAULT_TASKS = [
     {"title": "Уточнить задачу и подготовить материалы", "minutes": 60, "estimate_source": "estimate"},
     {"title": "Реализовать MCP и AI-логику", "minutes": 180, "estimate_source": "estimate"},
@@ -50,7 +106,7 @@ def _normalize_tasks(tasks):
         actual = task.get("actual_minutes")
         if actual is not None and (type(actual) is not int or not 0 <= actual <= 100000):
             raise ValueError("actual_minutes must be null or an integer between 0 and 100000")
-        normalized.append({**metadata, "actual_minutes": actual, "id": identifier, "title": title.strip(), "minutes": minutes,
+        normalized.append({**{key: value for key, value in task.items() if key in PROGRESS_FIELDS}, **metadata, "actual_minutes": actual, "id": identifier, "title": title.strip(), "minutes": minutes,
                            "estimate_source": origin, "source_ids": list(dict.fromkeys(source_ids)),
                            "completed": completed})
     by_id = {task["id"]: task for task in normalized}
@@ -284,7 +340,10 @@ def build_plan(*, days, minutes_per_day, tasks=None, start_date=None, assignment
         raise ValueError("tasks for this assignment must come from its confirmed card")
     normalized = _normalize_tasks(DEFAULT_TASKS if tasks is None else tasks)
     ordered = prioritize_tasks(normalized)
-    pending = [task for task in ordered if not task["completed"]]
+    pending = [{**task, "minutes": sum(step["minutes"] for step in task["substeps"] if not step.get("completed")),
+                "substeps": [step for step in task["substeps"] if not step.get("completed")]}
+               if task.get("substeps") else task for task in ordered if not task["completed"]]
+    pending = [task for task in pending if task["minutes"] > 0]
     required = sum(t["minutes"] for t in pending)
     available = days * minutes_per_day
     remaining = [t["minutes"] for t in pending]
@@ -373,7 +432,10 @@ def build_adaptive_plan(tasks, availability, start_date=None, reserve_percent=0,
                       "linked": bool(linked), "complete_check": bool(checkable)})
         if not linked:
             warn("uncovered_requirement", "Для требования нет связанного действия.", requirement_id=identifier)
-    pending = [task for task in ordered if not task["completed"]]
+    pending = [{**task, "minutes": sum(step["minutes"] for step in task["substeps"] if not step.get("completed")),
+                "substeps": [step for step in task["substeps"] if not step.get("completed")]}
+               if task.get("substeps") else task for task in ordered if not task["completed"]]
+    pending = [task for task in pending if task["minutes"] > 0]
     remaining = [task["minutes"] for task in pending]
     cursor, schedule = 0, []
     budgets = [item["minutes"] * (100 - reserve_percent) // 100 for item in availability]

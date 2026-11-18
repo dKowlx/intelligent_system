@@ -150,14 +150,19 @@
     }
     target.append(metrics);
     const charts=element("div","analytics-charts");charts.append(trendChart(data.history || [],"actual_minutes","Учтённое время","мин"),trendChart(data.history || [],"completed_count","Выполненные действия","шт."));target.append(charts);
-    const comparison=element("section","analytics-comparison panel");comparison.append(element("h3","","Оценка и фактическое время"),element("p","empty-note","Факт вводится вручную. Для незавершённых действий оценка отражает оставшуюся работу; их разница не является перерасходом."));
+    const comparison=element("section","analytics-comparison panel");comparison.append(element("h3","","Оценка и фактическое время"),element("p","empty-note","Факт поступает от владельца или из отчётов Codex. Измеренное время и оценка затраченного времени различаются. Для незавершённых действий оценка отражает оставшуюся работу; их разница не является перерасходом."));
     if (!data.tasks?.length) comparison.append(element("p","empty-note","Добавьте действия и сохраните план."));
     for(const task of data.tasks || []) {
-      const row=element("div","comparison-row"), title=element("div","comparison-title");title.append(element("strong","",task.title),element("span","",task.completed ? "Выполнено" : "В работе"));row.append(title);
+      const row=element("div","comparison-row"), title=element("div","comparison-title");title.append(element("strong","",task.title),element("span","",({pending:"Не начато",in_progress:"В работе",partial:"Частично выполнено",paused:"Пауза",interrupted:"Прервано",blocked:"Нужна помощь",awaiting_review:"Ожидает проверки",completed:"Выполнено"})[task.progress_status] || (task.completed ? "Выполнено" : "В работе")));row.append(title);
       const max=Math.max(task.estimated_minutes || 0,task.actual_minutes || 0,1), bars=element("div","comparison-bars");
       for(const [label,value,kind] of [[task.completed?"Оценка":"Остаток",task.estimated_minutes,"estimate"],["Факт",task.actual_minutes,"actual"]]) {
         const line=element("div","comparison-line"), track=element("span","comparison-track"), fill=element("span",`comparison-fill ${kind}`);fill.style.width=`${Math.max(0,Number(value)||0)/max*100}%`;track.append(fill);line.append(element("span","",label),track,element("span","",value == null ? "—" : `${value} мин`));bars.append(line);
-      } row.append(bars);comparison.append(row);
+      }
+      if (task.measured_minutes) bars.append(element("p","empty-note",`Измерено: ${task.measured_minutes} мин`));
+      if (task.estimated_actual_minutes != null) bars.append(element("p","empty-note",`Оценка затраченного времени: ${task.estimated_actual_minutes} мин`));
+      if (task.actual_partial) bars.append(element("p","empty-note","Факт заполнен частично по подшагам"));
+      if (task.actual_source) bars.append(element("p","empty-note",`Источник факта: ${{user:"владелец",measured:"измерение",mixed:"смешанный",unknown:"неизвестен"}[task.actual_source] || task.actual_source}`));
+      row.append(bars);comparison.append(row);
     } target.append(comparison);
     const history=element("details","analytics-history panel"); history.append(element("summary","","История изменений"));
     const list=element("ol"); for(const row of (data.history || []).slice(-20).reverse()) list.append(element("li","",`${dateText(row.recorded_at)} · версия ${row.revision} · ${row.actual_minutes == null ? "факт не указан" : `учтено ${row.actual_minutes} мин`} · выполнено ${row.completed_count}${row.baseline ? " · первая запись" : row.correction ? " · корректировка предыдущих данных" : ""}`));

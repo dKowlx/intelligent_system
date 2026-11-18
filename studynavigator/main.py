@@ -71,7 +71,16 @@ class TaskInput(BaseModel):
     min_minutes: Annotated[StrictInt, Field(ge=1, le=4800)] | None = None
     max_minutes: Annotated[StrictInt, Field(ge=1, le=4800)] | None = None
     depends_on: list[Identifier] = Field(default_factory=list, max_length=20)
-    substeps: list[CardSubstep] = Field(default_factory=list, max_length=8)
+    # Accept saved metadata for browser round trips; trusted persistence supplies it.
+    actual_source: Literal["user", "measured", "mixed", "unknown"] = "unknown"
+    progress_status: Literal["pending", "in_progress", "paused", "interrupted", "partial", "blocked", "awaiting_review", "completed"] = "pending"
+    work_state: Literal["active", "paused", "interrupted", "stopped"] = "stopped"
+    measured_minutes: Annotated[StrictInt, Field(ge=0, le=100000)] = 0
+    estimated_actual_minutes: Annotated[StrictInt, Field(ge=0, le=100000)] | None = None
+    progress_summary: Annotated[str, StringConstraints(max_length=3000)] = ""
+    progress_evidence: list[Annotated[str, StringConstraints(max_length=1000)]] = Field(default_factory=list, max_length=10)
+    progress_updated_at: str | None = None
+    substeps: list[CardSubstep] = Field(default_factory=list, max_length=32)
 
 
 class PlanRequest(BaseModel):
@@ -168,7 +177,7 @@ class BodyLimitMiddleware:
         headers = dict(scope.get("headers", []))
         is_upload = scope.get("path") == "/api/assignments" or (is_materials and headers.get(b"content-type", b"").startswith(b"multipart/form-data"))
         is_confirmation = scope.get("path", "").startswith("/api/assignments/") and scope["path"].endswith("/confirm")
-        is_workspace = scope.get("path") == "/api/assignments/from-text" or (scope.get("path", "").startswith("/api/assignments/") and scope["path"].endswith("/plan"))
+        is_workspace = scope.get("path") in ("/api/assignments/from-text","/api/codex/plan") or (scope.get("path", "").startswith("/api/assignments/") and scope["path"].endswith("/plan"))
         is_text = scope.get("path") == "/api/assignments/from-text" or is_materials
         limit = (MAX_UPLOAD_BYTES + 65_536 if is_upload else MAX_TEXT_REQUEST_BYTES if is_text else 98_304 if is_confirmation or is_workspace or is_materials
                  else 32_768 if scope.get("path") == "/api/plan" else self.limit)
@@ -447,6 +456,17 @@ def create_app(settings=None, provider=None, analysis_provider=None):
         try:
             tasks = prepare_task_overrides(tasks_from_card(selected["card"]),
                                            [task.model_dump() for task in body.tasks])
+            from .planner import preserve_progress, reconcile_user_progress
+            existing = (selected.get("project_context") or {}).get("plan")
+            tasks = preserve_progress(tasks, existing["input"]["tasks"] if existing else [])
+            if existing and existing["card_revision"] != body.card_revision:
+                previous_tasks = {task["id"]: task for task in existing["input"]["tasks"]}
+                for task in tasks:
+                    original = previous_tasks.get(task["id"], {})
+                    for key in ("completed", "actual_minutes"):
+                        if key in original:
+                            task[key] = original[key]
+            tasks = reconcile_user_progress(tasks, existing["input"]["tasks"] if existing else [])
             availability = [item.model_dump() for item in body.availability]
             previous = (selected.get("project_context") or {}).get("plan")
             reserve = body.reserve_percent if body.reserve_percent is not None else (

@@ -149,7 +149,7 @@ function updateWorkflow() {
     else button.removeAttribute("aria-current");
   });
   renderViewVisibility();
-  window.NavigatorCodex?.setProject({ id: state.selectedId, ready: Boolean(state.detail) && !state.loading && isUploaded() && !materialOnly(), planDirty: state.planDirty || state.cardDirty || Boolean(state.plan) || Boolean(state.confirmation), card_revision: state.detail?.card_revision, plan_revision: savedPlan?.revision });
+  window.NavigatorCodex?.setProject({ id: state.selectedId, ready: Boolean(state.detail) && !state.loading && isUploaded() && !materialOnly(), visible: state.workflow !== "upload", planDirty: state.planDirty || state.cardDirty || Boolean(state.plan) || Boolean(state.confirmation), card_revision: state.detail?.card_revision, plan_revision: savedPlan?.revision });
 }
 
 function navigateWorkflow(step) {
@@ -279,7 +279,7 @@ function renderOverview() {
     const button = overviewButton("", () => openPlanTask(task));
     button.className = `route-item${task.completed ? " is-complete" : ""}`;
     const copy = element("span", "route-copy");
-    copy.append(element("strong", "", task.title), element("span", "route-status", task.completed ? "Выполнено" : blocked(task) ? "После предыдущих действий" : "Можно выполнять"));
+    copy.append(element("strong", "", task.title), element("span", "route-status", task.completed ? "Выполнено" : blocked(task) ? "После предыдущих действий" : ({partial:"Частично выполнено",in_progress:"В работе",paused:"Пауза",interrupted:"Прервано",blocked:"Нужна помощь",awaiting_review:"Ожидает проверки"})[task.progress_status] || "Можно выполнять"));
     button.append(element("span", "route-marker", task.completed ? "✓" : String(index + 1).padStart(2, "0")), copy, element("span", "route-duration", taskEstimateLabel(task)));
     const item = element('div', 'route-list-action'); item.append(button);
     if (window.NavigatorRouteMap?.renderTheory) {
@@ -909,6 +909,30 @@ async function confirmCard(event) {
   }
 }
 
+function progressCorrection(task, substep = null) {
+  const box = element("details", "progress-correction");
+  box.append(element("summary", "", substep ? "Исправить подшаг" : "Исправить статус или время"));
+  const action = element("select"); action.setAttribute("aria-label", "Корректировка статуса");
+  for (const [value, title] of [["record", "Сохранить время"], ["complete", "Отметить выполненным"], ["reopen", "Вернуть в работу"]]) { const option = element("option", "", title); option.value = value; action.append(option); }
+  const time = element("input"); time.type = "number"; time.min = "0"; time.max = "48000"; time.step = "1"; time.value = (substep || task).actual_minutes ?? ""; time.setAttribute("aria-label", "Фактическое время, минут; пусто — неизвестно");
+  const reason = element("input"); reason.maxLength = 2000; reason.placeholder = "Причина корректировки"; reason.setAttribute("aria-label", "Причина корректировки");
+  const note = element("p", "empty-note", "Укажите общее фактическое время. Пустое поле означает неизвестное время. Корректировка сохраняется в истории.");
+  const feedback = element("p"); feedback.setAttribute("role", "status");
+  const save = element("button", "button button-secondary", "Подтвердить корректировку"); save.type = "button";
+  save.addEventListener("click", async () => {
+    if (state.planDirty || state.cardDirty || state.plan || state.confirmation) { feedback.textContent = "Сначала сохраните или отмените изменения карточки и плана."; return; }
+    if (!time.reportValidity() || !reason.value.trim()) { feedback.textContent = "Укажите причину корректировки и проверьте время."; return; }
+    const id = state.selectedId, selection = state.selection;
+    save.disabled = true; feedback.textContent = "Сохраняем…";
+    try {
+      await requestJSON(`/api/assignments/${encodeURIComponent(id)}/codex/progress`, {method:"POST", body:JSON.stringify({card_revision:state.detail.card_revision,plan_revision:savedPlan?.revision || 0,request_id:globalThis.crypto?.randomUUID?.() || `manual-${Date.now()}-${Math.random().toString(36).slice(2)}`,task_id:task.id,...(substep ? {substep_id:substep.id} : {}),action:action.value,summary:reason.value.trim(),time:time.value === "" ? {source:"unknown"} : {source:"user",minutes:Number(time.value)}})},15000);
+      if (id === state.selectedId && selection === state.selection) await refreshCodexProgress({detail:{id}});
+    } catch(error) { if (id === state.selectedId) feedback.textContent = error.message; }
+    finally { save.disabled = false; }
+  });
+  box.append(action,time,reason,note,save,feedback); return box;
+}
+
 function renderTaskEditor() {
   const target = $("plan-tasks");
   target.replaceChildren();
@@ -968,6 +992,11 @@ function renderTaskEditor() {
     });
     actualLabel.append(actual);
     const details = element("details", "task-detail");
+    const progressLabels = {pending:"Не начато",in_progress:"В работе",paused:"Пауза",interrupted:"Прервано",partial:"Частично выполнено",blocked:"Нужна помощь",awaiting_review:"Ожидает проверки",completed:"Выполнено"};
+    if (task.progress_status) info.append(element("span", "task-origin", progressLabels[task.progress_status] || task.progress_status));
+    if (task.actual_source) info.append(element("span", "task-origin", `Источник факта: ${{user:"владелец",measured:"измерение",mixed:"смешанный",unknown:"неизвестен"}[task.actual_source] || task.actual_source}`));
+    if (task.measured_minutes) info.append(element("span", "task-origin", `Измерено: ${task.measured_minutes} мин`));
+    if (task.estimated_actual_minutes != null) info.append(element("span", "task-origin", `Оценка затраченного времени: ${task.estimated_actual_minutes} мин`));
     details.append(element("summary", "", "Результат и оценка"));
     for (const [label, value] of [
       ["Результат", task.expected_result], ["Готово, когда", task.done_when],
@@ -978,9 +1007,15 @@ function renderTaskEditor() {
     }
     if (task.substeps?.length) {
       const steps = element("ol", "task-substeps");
-      task.substeps.forEach(step => steps.append(element("li", "", `${step.title} · ${formatMinutes(step.minutes)}. ${step.done_when}`)));
+      task.substeps.forEach(step => {
+        const item = element("li", "", `${step.title} · ${formatMinutes(step.minutes)} · ${progressLabels[step.progress_status] || (step.completed ? "Выполнено" : "Не начато")}. ${step.done_when || ""}`);
+        if (step.actual_minutes != null) item.append(element("span", "", ` · факт ${step.actual_minutes} мин (${{user:"владелец",measured:"измерение",mixed:"смешанный",unknown:"неизвестен"}[step.actual_source] || "источник не указан"})`));
+        item.append(progressCorrection(task, step));
+        steps.append(item);
+      });
       details.append(steps);
     }
+    details.append(progressCorrection(task));
     details.append(element("p", "empty-note", "Остаток задаётся вручную. Фактическое время не вычитается автоматически."));
     row.append(done, info, minuteLabel, actualLabel, details);
     target.append(row);
@@ -2422,11 +2457,24 @@ $("refine-estimates")?.addEventListener("click", () => {
   sendMessage("Переоцени длительность всех действий с учётом объёма, сложности, подготовки, решения и проверки. Используй доступную теорию и мой фактический темп, если он есть. Предложи обоснованные диапазоны времени и более подробные подшаги; сохрани прогресс и зависимости.");
 });
 
-window.addEventListener?.("navigator-codex-accepted", async (event) => {
-  if (event.detail?.id !== state.selectedId || state.planDirty || state.cardDirty || state.plan || state.confirmation) return;
+async function refreshCodexProgress(event) {
+  if (event.detail?.id !== state.selectedId) return;
+  if (state.planDirty || state.cardDirty || state.plan || state.confirmation) {
+    if ($("plan-save-status")) $("plan-save-status").textContent = "Проект изменён через Codex. Ваши правки сохранены в форме; перед сохранением сверьте изменения или отмените черновик.";
+    return;
+  }
   const id = state.selectedId, selection = state.selection;
+  if (event.detail.card_revision != null && event.detail.card_revision !== state.detail.card_revision) {
+    try {
+      const data = await requestJSON(`/api/assignments/${encodeURIComponent(id)}`, {}, 15000);
+      if (id !== state.selectedId || selection !== state.selection || state.cardDirty || state.planDirty || state.plan || state.confirmation) return;
+      applyAssignment(data.assignment);
+    } catch (error) { if ($("plan-save-status")) $("plan-save-status").textContent = error.message; return; }
+  }
   await loadSavedPlan(selection, true);
-  if (state.selectedId === id && selection === state.selection) updateControls();
-});
+  if (state.selectedId === id && selection === state.selection) { updateControls(); if (state.workflow === "analytics") window.ProjectWorkspace?.loadAnalytics(); }
+}
+window.addEventListener?.("navigator-codex-accepted", refreshCodexProgress);
+window.addEventListener?.("navigator-codex-updated", refreshCodexProgress);
 
 initialize();

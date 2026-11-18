@@ -67,7 +67,7 @@ function harness(fetchResponse, { reducedMotion = false, formatter = true, route
     },
   });
   if (formatter) vm.runInContext(formatterSource, context);
-  vm.runInContext(appSource.replace(/initialize\(\);\s*$/, "") + "\nglobalThis.app = { state, selectAssignment, submitUpload, deleteAssignment, confirmCard, submitPlan, updateControls, analyzeCard, showMode, scrollConversation, sourceCard, renderMaterialResults, messageNode, fillAnswer, renderActionEditor, readCardForm, renderAvailability, initialize, loadSavedPlan, restoreSavedTasks, renderTaskEditor, renderOverview, navigateWorkflow, effectiveDayMinutes, renderPlan, normalizeSubsteps, loadRouteTheory, loadChatSessions, openChatSession, newChat, sendMessage, deleteChatSession };", context);
+  vm.runInContext(appSource.replace(/initialize\(\);\s*$/, "") + "\nglobalThis.app = { state, selectAssignment, submitUpload, deleteAssignment, confirmCard, submitPlan, updateControls, analyzeCard, showMode, scrollConversation, sourceCard, renderMaterialResults, messageNode, fillAnswer, renderActionEditor, readCardForm, renderAvailability, initialize, loadSavedPlan, restoreSavedTasks, renderTaskEditor, progressCorrection, refreshCodexProgress, renderOverview, navigateWorkflow, effectiveDayMinutes, renderPlan, normalizeSubsteps, loadRouteTheory, loadChatSessions, openChatSession, newChat, sendMessage, deleteChatSession };", context);
   const app = context.app;
   app.state.status = { mode: "offline" };
   app.state.assignments = [uploaded, seed];
@@ -1007,4 +1007,28 @@ test("editing only actual minutes immediately blocks Codex acceptance through di
   assert.equal(app.state.planDirty, true);
   assert.equal(contexts.at(-1).planDirty, true);
   assert.equal(app.calls.length, 0);
+});
+
+test("manual progress correction submits owner time and stable task/substep targets", async () => {
+  const app = harness(async url => url.endsWith('/codex/progress') ? {status:200,body:{}} : {status:200,body:{plan:null}});
+  app.state.selectedId = uploaded.assignment_id; app.state.detail = {...uploaded, card_revision:3};
+  const box = app.progressCorrection({id:'task-a'}, {id:'step-a', actual_minutes:9});
+  const [,action,time,reason,,save] = box.children;
+  action.value='complete'; time.value='12'; reason.value='Проверил результат';
+  await save.listeners.click();
+  const body=JSON.parse(app.calls[0].options.body);
+  assert.equal(body.task_id,'task-a'); assert.equal(body.substep_id,'step-a');
+  assert.equal(body.action,'complete'); assert.deepEqual(body.time,{source:'user',minutes:12});
+  assert.equal(body.card_revision,3); assert.ok(body.request_id);
+});
+test("manual correction preserves dirty plans and external updates explain conflicts", async () => {
+  const app=harness(unavailable); app.state.selectedId=uploaded.assignment_id;
+  app.state.detail={...uploaded,card_revision:3}; app.state.planDirty=true;
+  const task={id:'task-a',minutes:40}; app.state.planTasks=[task];
+  const box=app.progressCorrection(task); const save=box.children[5];
+  await save.listeners.click();
+  assert.equal(app.calls.length,0); assert.match(box.children[6].textContent,/Сначала сохраните/);
+  await app.refreshCodexProgress({detail:{id:uploaded.assignment_id,plan_revision:9}});
+  assert.equal(app.state.planTasks[0],task); assert.equal(app.state.planDirty,true);
+  assert.match(app.get('plan-save-status').textContent,/Ваши правки сохранены/);
 });

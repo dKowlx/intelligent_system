@@ -412,6 +412,12 @@ class Store:
                 if (current[0] != card_revision or current[1] != "ready" or (old[0] if old else 0) != plan_revision
                         or (materials_revision is not None and current[2] != materials_revision)):
                     raise CardError("proposal_conflict", "Проект изменился. Запросите новое предложение ассистента.", 409)
+                if plan_input is not None:
+                    from .planner import protect_reported_steps
+                    try:
+                        protect_reported_steps(connection, assignment_id, plan_input["tasks"])
+                    except ValueError as exc:
+                        raise CardError("progress_conflict", "Нельзя удалить шаг с записанным отчётом.", 409) from exc
                 connection.execute("UPDATE assignments SET card_json=?,card_revision=card_revision+1 WHERE assignment_id=?", (json.dumps(parsed.model_dump(),ensure_ascii=False),assignment_id))
                 if plan_input is not None:
                     now = datetime.now(timezone.utc).isoformat()
@@ -437,7 +443,18 @@ class Store:
         status = "ready" if confirmed else "needs_confirmation"
         with closing(sqlite3.connect(self.db_path)) as connection:
             connection.execute("PRAGMA foreign_keys=ON")
+            connection.execute("BEGIN IMMEDIATE")
             with connection:
+                if confirmed:
+                    from .planner import preserve_progress
+                    old_plan = connection.execute("SELECT input_json FROM assignment_plans WHERE assignment_id=? AND workspace_id=?", (assignment_id, self.workspace_id)).fetchone()
+                    if old_plan:
+                        try:
+                            preserve_progress([task.model_dump() for task in parsed.tasks], json.loads(old_plan[0])["tasks"])
+                            from .planner import protect_reported_steps
+                            protect_reported_steps(connection, assignment_id, [task.model_dump() for task in parsed.tasks])
+                        except ValueError as exc:
+                            raise CardError("progress_conflict", "Нельзя удалить действие или шаг с сохранённым прогрессом.", 409) from exc
                 result = connection.execute("""UPDATE assignments SET card_json=?,card_revision=card_revision+1,status=?
                     WHERE assignment_id=? AND workspace_id=? AND card_revision=?
                     AND (? IS NULL OR materials_revision=?)""",
@@ -553,7 +570,7 @@ class Store:
                 "SELECT stored_name FROM documents WHERE assignment_id=?", (assignment_id,))]
             with connection:
                 # Older standalone databases may not have the optional Codex tables.
-                for table in ("codex_report_requests", "codex_runs", "codex_connections"):
+                for table in ("codex_activity", "codex_report_requests", "codex_runs", "codex_connections"):
                     if not connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
                                               (table,)).fetchone():
                         continue

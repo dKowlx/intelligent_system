@@ -66,7 +66,7 @@ async def test_stdio_protocol_discovery_validation_and_all_tools(upstream):
         env={**os.environ, "NAVIGATOR_URL": url, "NAVIGATOR_TOKEN": TOKEN})
     async with Client(params, cache=None) as client:
         tools = (await client.list_tools()).tools
-        assert {tool.name for tool in tools} == {"get_project", "search_materials", "claim_task", "report_task"}
+        assert {tool.name for tool in tools} == {"get_project", "search_materials", "claim_task", "report_task", "update_progress", "update_plan"}
         assert all(tool.input_schema["additionalProperties"] is False for tool in tools)
         assert all("NAVIGATOR_TOKEN" not in json.dumps(tool.model_dump()) for tool in tools)
         for name, args in [
@@ -165,3 +165,27 @@ def test_uv_command_finds_module_from_another_repository(tmp_path):
     assert "Project Navigator: ошибка подключения" in result.stderr
     assert "No module named" not in result.stderr
     assert "dummy-private-token" not in result.stdout + result.stderr
+
+
+@pytest.mark.asyncio
+async def test_stdio_timer_generates_active_measurement_and_stops_on_report(upstream):
+    url, calls = upstream
+    params = StdioServerParameters(command=sys.executable,
+        args=['-m', 'studynavigator.codex_bridge'], cwd=ROOT,
+        env={**os.environ, 'NAVIGATOR_URL': url, 'NAVIGATOR_TOKEN': TOKEN})
+    async with Client(params, cache=None) as client:
+        base = {'task_id': 'task', 'card_revision': 1, 'plan_revision': 1, 'summary': 'Working'}
+        assert not (await client.call_tool('update_progress', {**base, 'action': 'start', 'request_id': 'timer-start'})).is_error
+        paused = await client.call_tool('update_progress', {**base, 'action': 'pause', 'request_id': 'timer-pause'})
+        assert not paused.is_error
+        measured = calls[-1][3]['time']
+        assert measured['source'] == 'measured' and measured['minutes'] == 0
+        assert measured['measurement'] == 'bridge_timer' and measured['basis']
+        assert not (await client.call_tool('update_progress', {**base, 'action': 'resume', 'request_id': 'timer-resume'})).is_error
+        assert not (await client.call_tool('report_task', {'run_id': 'unmapped-run', 'status': 'partial',
+            'summary': 'Partial work', 'evidence': ['checked'], 'request_id': 'timer-report',
+            'expected_updated_at': '2026-11-18T00:00:00+00:00'})).is_error
+        assert calls[-1][3]['expected_updated_at'] == '2026-11-18T00:00:00+00:00'
+        # A report stopped even an unmapped timer; idle no longer produces measurements.
+        assert not (await client.call_tool('update_progress', {**base, 'action': 'record', 'request_id': 'timer-after-report'})).is_error
+        assert 'time' not in calls[-1][3]

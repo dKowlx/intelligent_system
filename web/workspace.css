@@ -193,3 +193,10 @@
 
 .chat-sessions-heading { flex-wrap: wrap; }
 .chat-sessions-heading h3 { margin-right: auto; }
+
+.codex-scopes { display: grid; gap: 8px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.codex-scopes label { display: flex; align-items: center; gap: 8px; }
+.codex-scopes input { width: 20px; height: 20px; }
+.progress-correction { margin-top: 12px; }
+.progress-correction > input, .progress-correction > select { display: block; width: 100%; min-height: 44px; margin-top: 8px; box-sizing: border-box; }
+#codex-connections li, #codex-runs li { overflow-wrap: anywhere; }

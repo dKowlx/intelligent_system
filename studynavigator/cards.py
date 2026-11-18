@@ -6,7 +6,7 @@ import re
 from datetime import date as CalendarDate
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StringConstraints, ValidationError, field_validator, model_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints, ValidationError, field_validator, model_validator, model_serializer
 
 from .catalog import CatalogError
 
@@ -68,6 +68,29 @@ class CardSubstep(BaseModel):
     title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
     minutes: Annotated[StrictInt, Field(ge=1, le=4800)]
     done_when: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+    actual_source: Literal["user", "measured", "mixed", "unknown"] = "unknown"
+    progress_summary: Annotated[str, StringConstraints(max_length=3000)] = ""
+    progress_evidence: list[Annotated[str, StringConstraints(max_length=1000)]] = Field(default_factory=list, max_length=10)
+    progress_updated_at: str | None = None
+    completed: StrictBool = False
+    actual_minutes: Annotated[StrictInt, Field(ge=0, le=100000)] | None = None
+    progress_status: Literal["pending", "in_progress", "paused", "interrupted", "partial", "blocked", "awaiting_review", "completed"] = "pending"
+    work_state: Literal["active", "paused", "interrupted", "stopped"] = "stopped"
+    measured_minutes: Annotated[StrictInt, Field(ge=0, le=100000)] = 0
+    estimated_actual_minutes: Annotated[StrictInt, Field(ge=0, le=100000)] | None = None
+
+
+    @model_serializer(mode="wrap")
+    def omit_empty_progress(self, handler):
+        result = handler(self)
+        for key in ("actual_source", "progress_summary", "progress_evidence", "progress_updated_at",
+                    "completed", "actual_minutes", "progress_status", "work_state",
+                    "measured_minutes", "estimated_actual_minutes"):
+            field = type(self).model_fields[key]
+            default = field.default_factory() if field.default_factory else field.default
+            if result.get(key) == default:
+                result.pop(key, None)
+        return result
 
 
 def apportion_substeps(substeps, minutes):

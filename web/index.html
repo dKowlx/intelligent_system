@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#365de8">
   <meta name="color-scheme" content="light dark">
-  <script src="/static/theme.js?v=20261117-codex-v1"></script>
+  <script src="/static/theme.js?v=20261118-collaboration-v2"></script>
   <title>Project Navigator — работа над проектами</title>
   <meta name="description" content="От сложной задачи к понятным действиям. Требования, доступное время и прогресс проекта в одном рабочем пространстве.">
-  <link rel="stylesheet" href="/static/styles.css?v=20261117-codex-v1">
-  <link rel="stylesheet" href="/static/route-map.css?v=20261117-codex-v1">
-  <script src="/static/route-map.js?v=20261117-codex-v1" defer></script>
-  <script id="text-format" src="/static/text-format.js?v=20261117-codex-v1" defer></script>
-  <script src="/static/codex-connection.js?v=20261117-codex-v1" defer></script>
-  <script src="/static/app.js?v=20261117-codex-v1" defer></script>
-  <script src="/static/workspace.js?v=20261117-codex-v1" defer></script>
-  <link rel="stylesheet" href="/static/workspace.css?v=20261117-codex-v1">
+  <link rel="stylesheet" href="/static/styles.css?v=20261118-collaboration-v2">
+  <link rel="stylesheet" href="/static/route-map.css?v=20261118-collaboration-v2">
+  <script src="/static/route-map.js?v=20261118-collaboration-v2" defer></script>
+  <script id="text-format" src="/static/text-format.js?v=20261118-collaboration-v2" defer></script>
+  <script src="/static/codex-connection.js?v=20261118-collaboration-v2" defer></script>
+  <script src="/static/app.js?v=20261118-collaboration-v2" defer></script>
+  <script src="/static/workspace.js?v=20261118-collaboration-v2" defer></script>
+  <link rel="stylesheet" href="/static/workspace.css?v=20261118-collaboration-v2">
 </head>
 <body>
   <a class="skip-link" href="#workspace">Перейти к проекту</a>
@@ -123,8 +123,8 @@
             <div class="panel-heading"><div><h2 id="plan-title">Действия и план</h2><p id="plan-intro" class="plan-intro">Проверяйте результат, отмечайте готовое и корректируйте оставшееся время.</p></div><span class="context-tag">Ваш рабочий маршрут</span></div>
             <details id="codex-panel" class="codex-panel" hidden>
               <summary>Codex <span class="empty-note">— подключение и результаты</span></summary>
-              <p>Разрешите вашему Codex читать материалы и передавать результаты действий только этого проекта. Готовность результата подтверждаете вы.</p>
-              <div class="codex-controls"><label for="codex-label">Название подключения<input id="codex-label" maxlength="80" value="Мой Codex" autocomplete="off"></label><label for="codex-days">Срок доступа, дней<input id="codex-days" type="number" min="1" max="30" value="7" required></label><button id="codex-create" class="button button-secondary" type="button">Создать подключение</button></div>
+              <p>Разрешите вашему Codex читать материалы и передавать результаты действий только этого проекта. Права и способ принятия результата выбираются отдельно для каждого подключения.</p>
+              <div class="codex-controls"><label for="codex-label">Название подключения<input id="codex-label" maxlength="80" value="Мой Codex" autocomplete="off"></label><label for="codex-days">Срок доступа, дней<input id="codex-days" type="number" min="1" max="30" value="7" required></label><fieldset class="codex-scopes"><legend>Права подключения</legend><label><input id="codex-scope-read" type="checkbox" checked disabled> Читать проект</label><label><input id="codex-scope-reports" type="checkbox"> Передавать отчёты</label><label><input id="codex-scope-progress" type="checkbox"> Обновлять прогресс и время</label><label><input id="codex-scope-plan" type="checkbox"> Изменять план</label></fieldset><label for="codex-completion-mode">Принятие результата<select id="codex-completion-mode"><option value="review" selected>После моей проверки</option><option value="auto">Автоматически</option></select></label><button id="codex-create" class="button button-secondary" type="button">Создать подключение</button></div>
               <div id="codex-token-box" hidden><p>Токен показан один раз. Сохраните его в локальном env-файле вне Git. Это доступ к проекту, а не ключ OpenAI или Яндекса.</p><label for="codex-token">Токен подключения<input id="codex-token" type="password" readonly autocomplete="off" spellcheck="false"></label><button id="codex-copy" class="button button-secondary" type="button">Скопировать токен</button><button id="codex-hide-token" class="button button-secondary" type="button">Скрыть и удалить с экрана</button></div>
               <details><summary>Как подключить</summary><p>Создайте локальный env-файл и задайте NAVIGATOR_URL адресом этого сервиса, NAVIGATOR_TOKEN — выданным токеном. Подключите MCP-сервер по инструкции. Не передавайте токен в чат или команды терминала.</p><a href="https://github.com/dKowlx/intelligent_system/blob/main/docs/codex-connection.md" target="_blank" rel="noopener noreferrer">Инструкция подключения Codex</a></details>
               <ul id="codex-connections" aria-label="Подключения Codex"></ul>

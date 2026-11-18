@@ -146,7 +146,8 @@ def _preview(assignment, proposal, *, estimate_origin="user"):
         raise CardError("read_only_assignment", "Сначала подтвердите карточку своего проекта.", 409)
     if saved and saved.get("stale"):
         raise CardError("stale_card", "Сначала пересчитайте устаревший план.", 409)
-    tasks = deepcopy(saved["result"]["tasks"] if saved else tasks_from_card(card))
+    previous_tasks = (saved.get("input", {}).get("tasks") or saved.get("result", {}).get("tasks", [])) if saved else []
+    tasks = deepcopy(previous_tasks if saved else tasks_from_card(card))
     by_id = {task["id"]: task for task in tasks}
     editable = set(CardTask.model_fields) - {"id", "estimate_source", "source_ids"}
     editable |= {"completed", "actual_minutes"}
@@ -184,6 +185,8 @@ def _preview(assignment, proposal, *, estimate_origin="user"):
                                 min_minutes=op.changes.get("min_minutes"), max_minutes=op.changes.get("max_minutes"),
                                 estimate_basis=(op.changes.get("estimate_basis") or "Рекомендация ассистента; проверьте по фактическим затратам"
                                                 if estimate_origin == "estimate" else "Оценка изменена по запросу пользователя"))
+    from .planner import reconcile_user_progress
+    tasks = reconcile_user_progress(tasks, previous_tasks)
     card["tasks"] = [{key: value for key, value in task.items() if key in CardTask.model_fields} for task in tasks]
     parsed = validate_card_sources(card, assignment.get("sources", []), confirmed=True).model_dump()
     plan_input = deepcopy(saved["input"]) if saved else {"availability": [{"day": 1, "minutes": 0}], "reserve_percent": 20, "start_date": None}

@@ -5,10 +5,11 @@ import threading
 import time
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
-from .catalog import Store
+from .codex_plan import PlanEdit
+from .codex_progress import ProgressBody
 from .codex_access import CodexAccess, CodexAccessError
 from .mcp_server import Identifier
 
@@ -24,6 +25,22 @@ class StrictBody(BaseModel):
 class NewConnection(StrictBody):
     label: Annotated[str, Field(min_length=1, max_length=100, pattern=r"\S")]
     expires_days: Annotated[StrictInt, Field(ge=1, le=30)] = 7
+    scopes: Annotated[list[Literal["read","reports","progress","plan"]], Field(min_length=1,max_length=4)] | None = None
+    completion_mode: Literal["review","auto"] = "review"
+
+
+class Progress(ProgressBody):
+    card_revision: Revision
+    plan_revision: Revision
+    request_id: Identifier
+
+
+class EditPlan(StrictBody):
+    card_revision: Revision
+    plan_revision: Revision
+    request_id: Identifier
+    changes: PlanEdit
+    reason: Text
 
 
 class Search(StrictBody):
@@ -32,6 +49,7 @@ class Search(StrictBody):
 
 
 class Claim(StrictBody):
+    substep_id: Identifier | None = None
     task_id: Identifier
     card_revision: Revision
     plan_revision: Revision
@@ -40,7 +58,8 @@ class Claim(StrictBody):
 
 class Report(StrictBody):
     run_id: Identifier
-    status: Literal["awaiting_review", "blocked"]
+    expected_updated_at: Annotated[str, Field(min_length=1,max_length=64)] | None = None
+    status: Literal["awaiting_review", "blocked", "partial"]
     summary: Text
     evidence: Annotated[list[Evidence], Field(max_length=10)]
     request_id: Identifier
@@ -109,7 +128,7 @@ def create_codex_router(access: CodexAccess) -> APIRouter:
     @router.post("/api/assignments/{assignment_id}/codex/connections", status_code=201)
     def connect(assignment_id: Identifier, body: NewConnection, request: Request):
         return access.create_connection(browser(request, "create"), assignment_id,
-                                        body.label, body.expires_days)
+                                        body.label, body.expires_days, body.scopes, body.completion_mode)
 
     @router.delete("/api/assignments/{assignment_id}/codex/connections/{connection_id}")
     def revoke(assignment_id: Identifier, connection_id: Identifier, request: Request):
@@ -118,12 +137,16 @@ def create_codex_router(access: CodexAccess) -> APIRouter:
 
     @router.get("/api/assignments/{assignment_id}/codex/runs")
     def runs(assignment_id: Identifier, request: Request):
-        workspace = browser(request)
-        selected = Store(access.db_path, workspace).get_assignment(assignment_id)["assignment"]
-        plan = selected.get("project_context", {}).get("plan")
-        return {"runs": access.list_runs(workspace, assignment_id),
-                "card_revision": selected["card_revision"],
-                "plan_revision": plan["revision"] if plan else 0}
+        return access.activity(browser(request),assignment_id,include_runs=True)
+
+    @router.get("/api/assignments/{assignment_id}/codex/changes")
+    def changes(assignment_id: Identifier, request: Request):
+        return access.activity(browser(request),assignment_id)
+
+    @router.post("/api/assignments/{assignment_id}/codex/progress")
+    def owner_progress(assignment_id: Identifier, body: Progress, request: Request):
+        return access.mutate(None, "progress", body.model_dump(mode="json", exclude_none=True),
+                             owner_workspace=browser(request), assignment_id=assignment_id)
 
     @router.post("/api/assignments/{assignment_id}/codex/runs/{run_id}/accept")
     def accept(assignment_id: Identifier, run_id: Identifier, body: Accept, request: Request):
@@ -150,5 +173,14 @@ def create_codex_router(access: CodexAccess) -> APIRouter:
     @router.post("/api/codex/report")
     def report(body: Report, request: Request):
         return {"run": access.report_task(agent(request), **body.model_dump())}
+
+    @router.post("/api/codex/progress")
+    def progress(body: Progress, request: Request, response: Response):
+        return access.mutate(agent(request),"progress",body.model_dump(mode="json",exclude_none=True),
+                             response_headers=response.headers)
+
+    @router.post("/api/codex/plan")
+    def edit_plan(body: EditPlan, request: Request):
+        return access.mutate(agent(request),"plan",body.model_dump(mode="json",exclude_unset=True))
 
     return router
